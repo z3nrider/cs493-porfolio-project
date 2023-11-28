@@ -17,7 +17,7 @@ router.use(bodyParser.json());
 // TODO: maybe add public/private posts
 function post_post(content, hashtag, verification) {
     var key = datastore.key(POST);
-    const new_post = { "content": content, "hashtag": hashtag, "verification": verification, "interaction": [0, 0, 0] };
+    const new_post = { "content": content, "hashtag": hashtag, "verification": verification, "interactions": [0, 0, 0] };
 
     return datastore.save({ "key": key, "data": new_post }).then(() => {
         return { key, data: new_post }
@@ -42,7 +42,12 @@ function put_interaction_with_post(post_id, interaction_id, body) {
             }
 
             //TODO: need to push load, not load_id
-            post[0].interactions.push(body);
+            prev_reposts = post[0].interactions[0];
+            prev_likes = post[0].interactions[1];
+            post[0].interactions[0] = body.reposts;
+            post[0].interactions[1] = body.likes;
+            post[0].interactions[2] = body.views += 1;
+
             return datastore.save({ "key": post_key, "data": post[0] });
         })
 }
@@ -110,7 +115,7 @@ router.post('/', function (req, res) {
                             const key = result.key;
                             const data = result.data;
                             const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-                            const new_post = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "interction": data.interaction, "self": self_link };
+                            const new_post = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "interactions": data.interactions, "self": self_link };
 
                             res.status(201).send(new_post);
 
