@@ -12,6 +12,7 @@
         "json-to-html": "^0.1.2",
         "jwks-rsa": "^1.12.3",
         "node-json2html": "^2.2.3",
+        "nodemon": "^3.0.1",
         "request": "^2.88.2"
     },
     "scripts": {
