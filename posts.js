@@ -41,12 +41,24 @@ function put_interaction_with_post(post_id, interaction_id, body) {
                 }
             }
 
-            //TODO: need to push load, not load_id
             prev_reposts = post[0].interactions[0];
             prev_likes = post[0].interactions[1];
-            post[0].interactions[0] = body.reposts;
-            post[0].interactions[1] = body.likes;
-            post[0].interactions[2] = body.views += 1;
+            prev_views = post[0].interactions[2];
+
+            // Update number of reposts if reposted
+            if (body.reposts === true) {
+                let curr_reposts = prev_reposts += body.reposts;
+                post[0].interactions[0] = curr_reposts;
+            }
+
+            // Update number of likes if liked
+            if (body.likes === true) {
+                curr_likes = prev_likes += body.likes;
+                post[0].interactions[1] = curr_likes;
+            }
+
+            // Views always increment
+            post[0].interactions[2] = prev_views += 1;
 
             return datastore.save({ "key": post_key, "data": post[0] });
         })
