@@ -79,6 +79,12 @@ function delete_post(id) {
     return datastore.delete(key);
 }
 
+// Delete a an associated interaction
+function delete_interaction(id) {
+    const key = datastore.key([INTERACTION, parseInt(id, 10)]);
+    return datastore.delete(key);
+}
+
 // Edit a post
 // TODO: allow user to edit post only if they are "verified" via subscription
 function put_post(id, content, hashtag, verification) {
@@ -192,6 +198,10 @@ router.delete('/:id', function (req, res) {
                                 if (req.params.id === posts[i].id) {
                                     // Found a valid post id and create old post object
                                     old_post = posts[i];
+                                    //TODO: iterate through every interaction and delete those interactions
+                                    for (let j = 0; j < old_post.interactions.length; j++) {
+                                        delete_interaction(old_post.interactions[j].interaction_id);
+                                    }
                                     is_valid_id = true;
                                     break;
                                 }
