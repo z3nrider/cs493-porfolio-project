@@ -6,9 +6,19 @@ const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
 const json2html = require('node-json2html');
+const { get } = require('request');
 const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
-
 const MAX_POST_LENGTH = 140;
+
+function get_dateTime() {
+    // Snippet taken from:
+    // https://tecadmin.net/get-current-date-time-javascript/
+    let today = new Date();
+    let date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+    let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+    let dateTime = date + ' ' + time;
+    return dateTime;
+}
 
 router.use(bodyParser.json());
 /* ------------- Begin Post Model Functions ------------- */
@@ -16,11 +26,15 @@ router.use(bodyParser.json());
 // Create a post
 // TODO: maybe add public/private posts
 function post_post(content, hashtag, verification) {
-    var key = datastore.key(POST);
+    let key = datastore.key(POST);
+    let dateTime = get_dateTime();
+
     const new_post = {
         "content": content,
         "hashtag": hashtag,
         "verification": verification,
+        "dateTimeCreated": dateTime,
+        "dateTimeLastEdit": null,
         "interactions": [],
         "status": { reposts: 0, likes: 0, views: 0 }
     }
@@ -143,7 +157,13 @@ router.post('/', function (req, res) {
                             const data = result.data;
                             const self_link = req.get("host") + req.baseUrl + "/" + key.id;
                             const new_post = {
-                                "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "interactions": data.interactions,
+                                "id": key.id,
+                                "content": data.content,
+                                "hashtag": data.hashtag,
+                                "verification": data.verification,
+                                "dateTimeCreated": data.dateTimeCreated,
+                                "dateTimeLastEdit": data.dateTimeLastEdit,
+                                "interactions": data.interactions,
                                 "status": data.status,
                                 "self": self_link
                             };
@@ -230,66 +250,81 @@ router.delete('/', function (req, res) {
 
 // Edit a post
 // TODO: only edit if verified user
-// router.put('/:id', function (req, res) {
-//     const accepts = req.accepts(['application/json', 'text/html']);
-//     if (req.params.id < 1000000000000000 || req.params.id === 'null') {
-//         res.status(404).json({ 'Error': 'No post with this id exists' });
-//     } else if (req.body.content === undefined ||
-//         req.body.hashtag === undefined ||
-//         req.body.verification === undefined) {
-//         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
-//     } else if (!accepts) {
-//         res.status(406).send('Not Acceptable');
-//     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-//         const posts = get_posts()
-//             .then((posts) => {
-//                 let old_post;
-//                 let is_duplicate_post_content = false;
-//                 let is_valid_id = false;
+router.put('/:id', function (req, res) {
+    const accepts = req.accepts(['application/json', 'text/html']);
+    if (req.params.id < 1000000000000000 || req.params.id === 'null') {
+        res.status(404).json({ 'Error': 'No post with this id exists' });
+    } else if (req.body.content === undefined ||
+        req.body.hashtag === undefined ||
+        req.body.verification === undefined) {
+        res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
+    } else if (!accepts) {
+        res.status(406).send('Not Acceptable');
+    } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
+        const posts = get_posts()
+            .then((posts) => {
+                let old_post;
+                let is_valid_id = false;
 
-//                 // TODO: don't need to check for duplicate content!
-//                 // Check for a post content that already exists
-//                 for (let i = 0; i < posts.length; i++) {
-//                     if (req.body.content === posts[i].content) {
-//                         // Cannot update a post's content to one that already exists
-//                         res.status(403).json({ 'Error': 'A post with that content already exists' });
-//                         is_duplicate_post_content = true;
-//                         break;
-//                     }
-//                     if (req.params.id === posts[i].id) {
-//                         // Found a valid post id and create old post object
-//                         old_post = posts[i];
-//                         is_valid_id = true;
-//                     }
-//                 }
+                // TODO: don't need to check for duplicate content!
+                // Check for a post content that already exists
+                for (let i = 0; i < posts.length; i++) {
+                    // if (req.body.content === posts[i].content) {
+                    //     // Cannot update a post's content to one that already exists
+                    //     res.status(403).json({ 'Error': 'A post with that content already exists' });
+                    //     is_duplicate_post_content = true;
+                    //     break;
+                    // }
+                    if (req.params.id === posts[i].id) {
+                        // Found a valid post id and create old post object
+                        old_post = posts[i];
+                        is_valid_id = true;
+                        break;
+                    }
+                }
 
-//                 // Update post
-//                 if (!is_duplicate_post_content && is_valid_id) {
+                // Update post
+                if (is_valid_id) {
 
-//                     // Post's content exceeded acceptable length
-//                     if (!(content.length > MAX_POST_LENGTH)) {
-//                         res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
-//                     } else {
-//                         put_post(req.params.id, req.body.content, req.body.hashtag, req.body.verification)
-//                             .then(result => {
-//                                 const key = result.key;
-//                                 const data = result.data;
-//                                 const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-//                                 const updated_post = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": self_link };
+                    // Post's content exceeded acceptable length
+                    if (req.body.content.length > MAX_POST_LENGTH) {
+                        res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
+                    } else {
+                        // function getOldPost(id) {
+                        //     return new Promise(id => {
+                        //         get_post(req.params.id);
+                        //     })
+                        // }
+                        // let old_post = getOldPost(req.params.id);
+                        put_post(req.params.id, req.body.content, req.body.hashtag, req.body.verification)
+                            .then(result => {
+                                const key = result.key;
+                                const data = result.data;
+                                const self_link = req.get("host") + req.baseUrl + "/" + key.id;
+                                const updated_post = {
+                                    "id": key.id,
+                                    "content": data.content,
+                                    "hashtag": data.hashtag,
+                                    "verification": data.verification,
+                                    "dateTimeCreated": old_post.dateTimeCreated,
+                                    "interactions": data.interactions,
+                                    "status": data.status,
+                                    "self": self_link
+                                };
 
-//                                 // Send back the updated post as json or html
-//                                 if (accepts === 'application/json') {
-//                                     res.status(303).set("Location", self_link).send(updated_post);
-//                                 } else {
-//                                     let html_updated_post = json2html.render(updated_post, template);
-//                                     res.status(303).set("Location", self_link).send(html_updated_post);
-//                                 }
-//                             })
-//                     }
-//                 }
-//             })
-//     } else { res.status(500).send('Content type got messed up!'); }
-// });
+                                // Send back the updated post as json or html
+                                if (accepts === 'application/json') {
+                                    res.status(303).set("Location", self_link).send(updated_post);
+                                } else {
+                                    let html_updated_post = json2html.render(updated_post, template);
+                                    res.status(303).set("Location", self_link).send(html_updated_post);
+                                }
+                            })
+                    }
+                }
+            })
+    } else { res.status(500).send('Content type got messed up!'); }
+});
 
 // Edit a post
 // router.patch('/:id', function (req, res) {
