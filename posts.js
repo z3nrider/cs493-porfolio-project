@@ -17,7 +17,13 @@ router.use(bodyParser.json());
 // TODO: maybe add public/private posts
 function post_post(content, hashtag, verification) {
     var key = datastore.key(POST);
-    const new_post = { "content": content, "hashtag": hashtag, "verification": verification, "interactions": { reposts: 0, likes: 0, views: 0, interaction_id: null } };
+    const new_post = {
+        "content": content,
+        "hashtag": hashtag,
+        "verification": verification,
+        "interactions": [],
+        "status": { reposts: 0, likes: 0, views: 0 }
+    }
 
     return datastore.save({ "key": key, "data": new_post }).then(() => {
         return { key, data: new_post }
@@ -32,7 +38,7 @@ function put_interaction_with_post(post_id, interaction_id, body) {
 
     return datastore.get(post_key)
         .then((post) => {
-            // if (typeof (post[0].interactions) === 'undefined') {
+            // if (typeof (post[0].interactions) === null) {
             //     post[0].interactions = [];
             // }
 
@@ -41,25 +47,26 @@ function put_interaction_with_post(post_id, interaction_id, body) {
             //         return -1;
             //     }
             // }
-            post[0].interactions.interaction_id = interaction_id;
-            prev_reposts = post[0].interactions.reposts;
-            prev_likes = post[0].interactions.likes;
-            prev_views = post[0].interactions.views;
+            let new_interaction = { interaction_id: interaction_id, repost: body.repost, like: body.like, view: body.view }
+            post[0].interactions.push(new_interaction);
+            prev_reposts = post[0].status.reposts;
+            prev_likes = post[0].status.likes;
+            prev_views = post[0].status.views;
 
             // Update number of reposts if reposted
-            if (body.reposts === true) {
-                let curr_reposts = prev_reposts += body.reposts;
-                post[0].interactions.reposts = curr_reposts;
+            if (body.repost === true) {
+                let curr_reposts = prev_reposts += body.repost;
+                post[0].status.reposts = curr_reposts;
             }
 
             // Update number of likes if liked
-            if (body.likes === true) {
-                curr_likes = prev_likes += body.likes;
-                post[0].interactions.likes = curr_likes;
+            if (body.like === true) {
+                curr_likes = prev_likes += body.like;
+                post[0].status.likes = curr_likes;
             }
 
             // Views always increment
-            post[0].interactions.views = prev_views += 1;
+            post[0].status.views = prev_views += 1;
 
             console.log("Interacted with post:\n", post[0]);
             return datastore.save({ "key": post_key, "data": post[0] });
@@ -129,7 +136,11 @@ router.post('/', function (req, res) {
                             const key = result.key;
                             const data = result.data;
                             const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-                            const new_post = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "interactions": data.interactions, "self": self_link };
+                            const new_post = {
+                                "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "interactions": data.interactions,
+                                "status": data.status,
+                                "self": self_link
+                            };
 
                             res.status(201).send(new_post);
 
@@ -182,6 +193,7 @@ router.delete('/:id', function (req, res) {
                                     // Found a valid post id and create old post object
                                     old_post = posts[i];
                                     is_valid_id = true;
+                                    break;
                                 }
                             }
                             if (is_valid_id) {
@@ -368,7 +380,17 @@ router.patch('/', function (req, res) {
 router.get('/', function (req, res) {
     const posts = get_posts()
         .then((posts) => {
-            res.status(200).json(posts);
+            let posts_without_interactions = []
+            for (let i = 0; i < posts.length; i++) {
+                let curr_post = {
+                    id: posts[i].id,
+                    content: posts[i].content,
+                    hashtag: posts[i].hashtag,
+                    status: posts[i].status
+                };
+                posts_without_interactions.push(curr_post);
+            }
+            res.status(200).json(posts_without_interactions);
         });
 });
 
