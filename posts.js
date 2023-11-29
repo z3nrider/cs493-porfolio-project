@@ -164,6 +164,7 @@ router.put('/:post_id/interactions/:interaction_id', function (req, res) {
     if (post_id < 1000000000000000 || interaction_id < 1000000000000000) {
         res.status(404).json({ 'Error': 'The specified post and/or interaction does not exist' });
     } else {
+        //TODO: verify that interaction_id is a valid id. Right now, I can PUT any num on a post.
         put_interaction_with_post(req.params.post_id, req.params.interaction_id, req.body)
             .then(result => {
                 if (result === -1) {
