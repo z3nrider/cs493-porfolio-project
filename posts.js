@@ -17,7 +17,7 @@ router.use(bodyParser.json());
 // TODO: maybe add public/private posts
 function post_post(content, hashtag, verification) {
     var key = datastore.key(POST);
-    const new_post = { "content": content, "hashtag": hashtag, "verification": verification, "interactions": [0, 0, 0] };
+    const new_post = { "content": content, "hashtag": hashtag, "verification": verification, "interactions": { reposts: 0, likes: 0, views: 0, interaction_id: null } };
 
     return datastore.save({ "key": key, "data": new_post }).then(() => {
         return { key, data: new_post }
@@ -27,39 +27,41 @@ function post_post(content, hashtag, verification) {
 // Interact with a post
 function put_interaction_with_post(post_id, interaction_id, body) {
     const post_key = datastore.key([POST, parseInt(post_id, 10)]);
+    //TODO: should i keep this?
     const interaction_key = datastore.key([INTERACTION, parseInt(interaction_id, 10)]);
 
     return datastore.get(post_key)
         .then((post) => {
-            if (typeof (post[0].interactions) === 'undefined') {
-                post[0].interactions = [];
-            }
+            // if (typeof (post[0].interactions) === 'undefined') {
+            //     post[0].interactions = [];
+            // }
 
-            for (let i = 0; i < post[0].interactions.length; i++) {
-                if (post[0].interactions[i] === interaction_id) {
-                    return -1;
-                }
-            }
-
-            prev_reposts = post[0].interactions[0];
-            prev_likes = post[0].interactions[1];
-            prev_views = post[0].interactions[2];
+            // for (let i = 0; i < post[0].interactions.length; i++) {
+            //     if (post[0].interactions[i] === interaction_id) {
+            //         return -1;
+            //     }
+            // }
+            post[0].interactions.interaction_id = interaction_id;
+            prev_reposts = post[0].interactions.reposts;
+            prev_likes = post[0].interactions.likes;
+            prev_views = post[0].interactions.views;
 
             // Update number of reposts if reposted
             if (body.reposts === true) {
                 let curr_reposts = prev_reposts += body.reposts;
-                post[0].interactions[0] = curr_reposts;
+                post[0].interactions.reposts = curr_reposts;
             }
 
             // Update number of likes if liked
             if (body.likes === true) {
                 curr_likes = prev_likes += body.likes;
-                post[0].interactions[1] = curr_likes;
+                post[0].interactions.likes = curr_likes;
             }
 
             // Views always increment
-            post[0].interactions[2] = prev_views += 1;
+            post[0].interactions.views = prev_views += 1;
 
+            console.log("Interacted with post:\n", post[0]);
             return datastore.save({ "key": post_key, "data": post[0] });
         })
 }
@@ -147,10 +149,10 @@ router.put('/:post_id/interactions/:interaction_id', function (req, res) {
     } else {
         put_interaction_with_post(req.params.post_id, req.params.interaction_id, req.body)
             .then(result => {
-                // console.log(result);
                 if (result === -1) {
                     res.status(403).json({ 'Error': 'The interaction is already loaded on another post' });
                 } else {
+                    //TODO: is 204 right status to send?
                     res.status(204).end();
                 }
             })
@@ -174,19 +176,22 @@ router.delete('/:id', function (req, res) {
                         }
 
                         else {
+                            // Iterate over all posts to find post to be deleted
                             for (let i = 0; i < posts.length; i++) {
                                 if (req.params.id === posts[i].id) {
                                     // Found a valid post id and create old post object
                                     old_post = posts[i];
                                     is_valid_id = true;
                                 }
-                                if (is_valid_id) {
-                                    res.status(204).end();
-                                }
-                                else {
-                                    res.status(404).end();
-                                }
                             }
+                            if (is_valid_id) {
+                                //TODO: delete interaction associated with post
+                                res.status(204).end();
+                            }
+                            else {
+                                res.status(404).end();
+                            }
+
                         }
                     }
                     )
