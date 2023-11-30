@@ -25,7 +25,6 @@ router.use(bodyParser.json());
 /* ------------- Begin Post Model Functions ------------- */
 
 // Create an eX Post
-// TODO: maybe add public/private posts
 function postExPost(exPostContents) {
     let key = datastore.key(POST);
     let dateTime = getDateTime();
@@ -48,20 +47,11 @@ function postExPost(exPostContents) {
 // Interact with an eX Post
 function putInteractWithExPost(postId, interactionId, body) {
     const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-    //TODO: should i keep this?
     const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
 
     return datastore.get(exPostKey)
         .then((exPost) => {
-            // if (typeof (exPost[0].interactions) === null) {
-            //     exPost[0].interactions = [];
-            // }
 
-            // for (let i = 0; i < exPost[0].interactions.length; i++) {
-            //     if (exPost[0].interactions[i] === interactionId) {
-            //         return -1;
-            //     }
-            // }
             let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
             exPost[0].interactions.push(newInteraction);
             previousReposts = exPost[0].status.reposts;
@@ -94,8 +84,7 @@ function deleteExPost(postId) {
     return datastore.delete(key);
 }
 
-//TODO: change interactionId to postId
-// Delete a an associated interaction
+// Delete an associated interaction
 function deleteInteraction(interactionId) {
     const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
     return datastore.delete(key);
@@ -211,48 +200,20 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
 
 // Delete an eX Post
 router.delete('/:postId', function (req, res) {
-    if ((req.params.postId < 1000000000000000) || req.params.postId === 'null') {
-        res.status(404).end();
-    } else {
-        const exPosts = getExPosts()
-            .then((exPosts) => {
+    const post = getExPost(req.params.postId)
+        .then(post => {
+            const data = post[0];
+
+            if (data === undefined) {
+                res.status(404).end();
+            } else {
+                //TODO: need to delete associated interactions here
                 deleteExPost(req.params.postId)
                     .then(result => {
-                        let isValidPostId = false;
-
-                        // There are no posts to be deleted
-                        if (exPosts.length === 0) {
-                            res.status(404).end();
-                        }
-
-                        else {
-                            // Iterate over all posts to find the eX post to be deleted
-                            for (let i = 0; i < exPosts.length; i++) {
-                                //TODO: is this id or postId???
-                                if (req.params.postId === exPosts[i].id) {
-                                    // Found a valid eX post id and create old eX post object
-                                    originalExPost = exPosts[i];
-                                    //TODO: iterate through every interaction and delete those interactions
-                                    for (let j = 0; j < originalExPost.interactions.length; j++) {
-                                        deleteInteraction(originalExPost.interactions[j].interactionId);
-                                    }
-                                    isValidPostId = true;
-                                    break;
-                                }
-                            }
-                            if (isValidPostId) {
-                                //TODO: delete interaction associated with post
-                                res.status(204).end();
-                            }
-                            else {
-                                res.status(404).end();
-                            }
-
-                        }
-                    }
-                    )
-            })
-    }
+                        res.status(204).end();
+                    })
+            }
+        })
 });
 
 // Delete posts attempt
@@ -439,6 +400,8 @@ router.get('/', function (req, res) {
     const posts = getExPosts()
         .then((posts) => {
             let posts_without_interactions = []
+
+            // Omit certain properties when requesting all eX Posts
             for (let i = 0; i < posts.length; i++) {
                 let curr_post = {
                     id: posts[i].id,
@@ -454,30 +417,37 @@ router.get('/', function (req, res) {
 
 // Get a post
 router.get('/:postId', function (req, res) {
-    if (req.params.postId < 1000000000000000 || req.params.postId === 'null') {
-        res.status(404).json({ 'Error': 'No post with this id exists' });
-    } else {
-        const posts = getExPost(req.params.postId)
-            .then(post => {
-                const accepts = req.accepts(['application/json', 'text/html']);
+    const exPost = getExPost(req.params.postId)
+        .then(exPost => {
+            const accepts = req.accepts(['application/json', 'text/html']);
 
-                if (!accepts) {
-                    res.status(406).send('Not Acceptable');
-                } else if (accepts === 'application/json') {
-                    const data = post[0];
-                    const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
-                    const newExPost = { "id": data.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": selfLink };
-                    res.status(200).json(newExPost);
-                } else if (accepts === 'text/html') {
-                    res.status(200).send(json2html(post).slice(1, -1));
-                } else { res.status(500).send('Content type got messed up!'); }
+            if (!accepts) {
+                res.status(406).send('Not Acceptable');
+            } else if (accepts === 'application/json') {
+                const data = exPost[0];
+                const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
 
-                if (post[0] === undefined || post[0] === null) {
-                    res.status(404).json({ 'Error': 'No post with this id exists' });
+                const exPost = {
+                    "id": data.id,
+                    "content": data.content,  // Content of the eX post
+                    "hashtag": data.hashtag,
+                    "verification": data.verification,  // A boolean that shows user verification status
+                    "dateTimeCreated": data.dateTimeCreated,
+                    "dateTimeLastEdit": data.dateTimeLastEdit,
+                    "interactions": data.interactions,  // An array of interactions that contain interaction events
+                    "status": data.status,  // Cumulative interaction events
+                    "self": selfLink
                 }
-            });
-    }
+                res.status(200).json(exPost);
+            } else if (accepts === 'text/html') {
+                const exPostHTML = JSON.stringify(exPost[0]);
+                res.status(200).send(`<p>${exPostHTML}</p>`);
+            } else { res.status(500).send('Content type got messed up!'); }
 
+            // if (exPost[0] === undefined || exPost[0] === null) {
+            //     res.status(404).json({ 'Error': 'No post with this id exists' });
+            // }
+        });
 });
 
 /* ------------- End Controller Functions ------------- */
