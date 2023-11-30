@@ -10,117 +10,128 @@ const { get } = require('request');
 const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
 const MAX_POST_LENGTH = 140;
 
-function get_dateTime() {
-    // Snippet taken from:
-    // https://tecadmin.net/get-current-date-time-javascript/
+// Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
+function getDateTime() {
     let today = new Date();
     let date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
     let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
     let dateTime = date + ' ' + time;
+
     return dateTime;
 }
 
 router.use(bodyParser.json());
+
 /* ------------- Begin Post Model Functions ------------- */
 
-// Create a post
+// Create an eX Post
 // TODO: maybe add public/private posts
-function post_post(content, hashtag, verification) {
+function postExPost(exPostContents) {
     let key = datastore.key(POST);
-    let dateTime = get_dateTime();
+    let dateTime = getDateTime();
 
-    const new_post = {
-        "content": content,
-        "hashtag": hashtag,
-        "verification": verification,
+    const newExPost = {
+        "content": exPostContents.content,  // Content of the eX post
+        "hashtag": exPostContents.hashtag,
+        "verification": exPostContents.verification,  // A boolean that shows user verification status
         "dateTimeCreated": dateTime,
         "dateTimeLastEdit": null,
-        "interactions": [],
-        "status": { reposts: 0, likes: 0, views: 0 }
+        "interactions": [],  // An array of interactions that contain interaction events
+        "status": { reposts: 0, likes: 0, views: 0 }  // Cumulative interaction events
     }
 
-    return datastore.save({ "key": key, "data": new_post }).then(() => {
-        return { key, data: new_post }
+    return datastore.save({ "key": key, "data": newExPost }).then(() => {
+        return { key, data: newExPost }
     });
 }
 
-// Interact with a post
-function put_interaction_with_post(post_id, interaction_id, body) {
-    const post_key = datastore.key([POST, parseInt(post_id, 10)]);
+// Interact with an eX Post
+function putInteractWithExPost(postId, interactionId, body) {
+    const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
     //TODO: should i keep this?
-    const interaction_key = datastore.key([INTERACTION, parseInt(interaction_id, 10)]);
+    const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
 
-    return datastore.get(post_key)
-        .then((post) => {
-            // if (typeof (post[0].interactions) === null) {
-            //     post[0].interactions = [];
+    return datastore.get(exPostKey)
+        .then((exPost) => {
+            // if (typeof (exPost[0].interactions) === null) {
+            //     exPost[0].interactions = [];
             // }
 
-            // for (let i = 0; i < post[0].interactions.length; i++) {
-            //     if (post[0].interactions[i] === interaction_id) {
+            // for (let i = 0; i < exPost[0].interactions.length; i++) {
+            //     if (exPost[0].interactions[i] === interactionId) {
             //         return -1;
             //     }
             // }
-            let new_interaction = { interaction_id: interaction_id, repost: body.repost, like: body.like, view: body.view }
-            post[0].interactions.push(new_interaction);
-            prev_reposts = post[0].status.reposts;
-            prev_likes = post[0].status.likes;
-            prev_views = post[0].status.views;
+            let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
+            exPost[0].interactions.push(newInteraction);
+            previousReposts = exPost[0].status.reposts;
+            previousLikes = exPost[0].status.likes;
+            previousViews = exPost[0].status.views;
 
             // Update number of reposts if reposted
             if (body.repost === true) {
-                let curr_reposts = prev_reposts += body.repost;
-                post[0].status.reposts = curr_reposts;
+                let currentReposts = previousReposts += body.repost;
+                exPost[0].status.reposts = currentReposts;
             }
 
             // Update number of likes if liked
             if (body.like === true) {
-                curr_likes = prev_likes += body.like;
-                post[0].status.likes = curr_likes;
+                currentLikes = previousLikes += body.like;
+                exPost[0].status.likes = currentLikes;
             }
 
             // Views always increment
-            post[0].status.views = prev_views += 1;
+            exPost[0].status.views = previousViews += 1;
 
-            console.log("Interacted with post:\n", post[0]);
-            return datastore.save({ "key": post_key, "data": post[0] });
+            console.log("Interacted with eX Post:\n", exPost[0]);
+            return datastore.save({ "key": exPostKey, "data": exPost[0] });
         })
 }
 
-// Delete a post
-function delete_post(id) {
-    const key = datastore.key([POST, parseInt(id, 10)]);
+// Delete an eX Post
+function deleteExPost(postId) {
+    const key = datastore.key([POST, parseInt(postId, 10)]);
     return datastore.delete(key);
 }
 
+//TODO: change interactionId to postId
 // Delete a an associated interaction
-function delete_interaction(id) {
-    const key = datastore.key([INTERACTION, parseInt(id, 10)]);
+function deleteInteraction(interactionId) {
+    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
     return datastore.delete(key);
 }
 
-// Edit a post
-// TODO: allow user to edit post only if they are "verified" via subscription
-function put_post(id, content, hashtag, verification) {
-    const key = datastore.key([POST, parseInt(id, 10)]);
-    const updated_post = { "content": content, "hashtag": hashtag, "verification": verification };
+// Edit an eX Post
+function putExPost(postId, editedExPostProperties, originalExPostProperties) {
+    const key = datastore.key([POST, parseInt(postId, 10)]);
 
-    return datastore.save({ "key": key, "data": updated_post }).then(() => {
-        return { key, data: updated_post }
+    let updatedExPost = {
+        "content": editedExPostProperties.content,
+        "hashtag": editedExPostProperties.hashtag,
+        "verification": editedExPostProperties.verification,
+        "dateTimeCreated": originalExPostProperties.dateTimeCreated,
+        "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
+        "interactions": originalExPostProperties.interactions,
+        "status": originalExPostProperties.status,
+        "self": originalExPostProperties.self
+    };
+
+    return datastore.save({ "key": key, "data": updatedExPost }).then(() => {
+        return { key, data: updatedExPost }
     });
 }
 
-// View posts
-function get_posts() {
+// View all eX posts
+function getExPosts() {
     const q = datastore.createQuery(POST);
     return datastore.runQuery(q).then((entities) => {
         return entities[0].map(ds.fromDatastore);
     });
 }
 
-// View a post
-function get_post(id) {
-    const key = datastore.key([POST, parseInt(id, 10)]);
+// View an eX post
+function getExPost(postId) {
+    const key = datastore.key([POST, parseInt(postId, 10)]);
     return datastore.get(key).then((entity) => {
         if (entity[0] === undefined || entity[0] === null) {
             return entity;
@@ -135,60 +146,61 @@ function get_post(id) {
 /* ------------- Begin Controller Functions ------------- */
 
 
-// Create a post
+// Create an eX Post
 router.post('/', function (req, res) {
     if (req.get('content-type') !== 'application/json') {
-        //res.status(415).send('Server only accepts application/json data.').end();
         res.status(415).end();
     } else if (req.body.content === undefined ||
         req.body.hashtag === undefined ||
         req.body.verification === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
+    } else if (req.body.content.length > MAX_POST_LENGTH) {
+        res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
     } else {
-        if (req.body.content.length > MAX_POST_LENGTH) {
-            res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
-        } else {
-            const posts = get_posts()
-                .then((posts) => {
-                    post_post(req.body.content, req.body.hashtag, req.body.verification)
-                        .then(result => {
-                            // Create new post of acceptable length
-                            const key = result.key;
-                            const data = result.data;
-                            const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-                            const new_post = {
-                                "id": key.id,
-                                "content": data.content,
-                                "hashtag": data.hashtag,
-                                "verification": data.verification,
-                                "dateTimeCreated": data.dateTimeCreated,
-                                "dateTimeLastEdit": data.dateTimeLastEdit,
-                                "interactions": data.interactions,
-                                "status": data.status,
-                                "self": self_link
-                            };
 
-                            res.status(201).send(new_post);
-
-                        });
-                })
+        let exPostContents = {
+            content: req.body.content,
+            hashtag: req.body.hashtag,
+            verification: req.body.verification
         }
+
+        postExPost(exPostContents)
+            .then(result => {
+                // Create a new eX post of acceptable length
+                const key = result.key;
+                const data = result.data;
+                const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                const newExPost = {
+                    "id": key.id,
+                    "content": data.content,
+                    "hashtag": data.hashtag,
+                    "verification": data.verification,
+                    "dateTimeCreated": data.dateTimeCreated,
+                    "dateTimeLastEdit": data.dateTimeLastEdit,
+                    "interactions": data.interactions,
+                    "status": data.status,
+                    "self": selfLink
+                };
+
+                res.status(201).send(newExPost);
+            })
     }
 });
 
-router.put('/:post_id/interactions/:interaction_id', function (req, res) {
-    // validate post id first
-    const post_id = req.params.post_id;
-    const interaction_id = req.params.interaction_id;
+router.put('/:postId/interactions/:interactionId', function (req, res) {
+    // validate eX post id first
+    const postId = req.params.postId;
+    const interactionId = req.params.interactionId;
 
-    if (post_id < 1000000000000000 || interaction_id < 1000000000000000) {
-        res.status(404).json({ 'Error': 'The specified post and/or interaction does not exist' });
+    if (postId < 1000000000000000 || interactionId < 1000000000000000) {
+        res.status(404).json({ 'Error': 'The specified eX Post and/or interaction does not exist' });
     } else {
-        //TODO: verify that interaction_id is a valid id. Right now, I can PUT any num on a post.
-        put_interaction_with_post(req.params.post_id, req.params.interaction_id, req.body)
+        //TODO: verify that interactionId is a valid id. Right now, I can PUT any num on a post.
+        putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
             .then(result => {
                 if (result === -1) {
-                    res.status(403).json({ 'Error': 'The interaction is already loaded on another post' });
+                    // TODO: the interaction id can only be used once?
+                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
                 } else {
                     //TODO: is 204 right status to send?
                     res.status(204).end();
@@ -197,37 +209,38 @@ router.put('/:post_id/interactions/:interaction_id', function (req, res) {
     }
 });
 
-// Delete a post
-router.delete('/:id', function (req, res) {
-    if ((req.params.id < 1000000000000000) || req.params.id === 'null') {
+// Delete an eX Post
+router.delete('/:postId', function (req, res) {
+    if ((req.params.postId < 1000000000000000) || req.params.postId === 'null') {
         res.status(404).end();
     } else {
-        const posts = get_posts()
-            .then((posts) => {
-                delete_post(req.params.id)
+        const exPosts = getExPosts()
+            .then((exPosts) => {
+                deleteExPost(req.params.postId)
                     .then(result => {
-                        let is_valid_id = false;
+                        let isValidPostId = false;
 
                         // There are no posts to be deleted
-                        if (posts.length === 0) {
+                        if (exPosts.length === 0) {
                             res.status(404).end();
                         }
 
                         else {
-                            // Iterate over all posts to find post to be deleted
-                            for (let i = 0; i < posts.length; i++) {
-                                if (req.params.id === posts[i].id) {
-                                    // Found a valid post id and create old post object
-                                    old_post = posts[i];
+                            // Iterate over all posts to find the eX post to be deleted
+                            for (let i = 0; i < exPosts.length; i++) {
+                                //TODO: is this id or postId???
+                                if (req.params.postId === exPosts[i].id) {
+                                    // Found a valid eX post id and create old eX post object
+                                    originalExPost = exPosts[i];
                                     //TODO: iterate through every interaction and delete those interactions
-                                    for (let j = 0; j < old_post.interactions.length; j++) {
-                                        delete_interaction(old_post.interactions[j].interaction_id);
+                                    for (let j = 0; j < originalExPost.interactions.length; j++) {
+                                        deleteInteraction(originalExPost.interactions[j].interactionId);
                                     }
-                                    is_valid_id = true;
+                                    isValidPostId = true;
                                     break;
                                 }
                             }
-                            if (is_valid_id) {
+                            if (isValidPostId) {
                                 //TODO: delete interaction associated with post
                                 res.status(204).end();
                             }
@@ -250,10 +263,10 @@ router.delete('/', function (req, res) {
 
 // Edit a post
 // TODO: only edit if verified user
-router.put('/:id', function (req, res) {
+router.put('/:postId', function (req, res) {
     const accepts = req.accepts(['application/json', 'text/html']);
-    if (req.params.id < 1000000000000000 || req.params.id === 'null') {
-        res.status(404).json({ 'Error': 'No post with this id exists' });
+    if (req.params.postId < 1000000000000000 || req.params.postId === 'null') {
+        res.status(404).json({ 'Error': 'No eX post with this id exists' });
     } else if (req.body.content === undefined ||
         req.body.hashtag === undefined ||
         req.body.verification === undefined) {
@@ -261,65 +274,64 @@ router.put('/:id', function (req, res) {
     } else if (!accepts) {
         res.status(406).send('Not Acceptable');
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const posts = get_posts()
-            .then((posts) => {
-                let old_post;
-                let is_valid_id = false;
+        const exPosts = getExPosts()
+            .then((exPosts) => {
+                let isValidPostId = false;
 
-                // TODO: don't need to check for duplicate content!
-                // Check for a post content that already exists
-                for (let i = 0; i < posts.length; i++) {
-                    // if (req.body.content === posts[i].content) {
-                    //     // Cannot update a post's content to one that already exists
-                    //     res.status(403).json({ 'Error': 'A post with that content already exists' });
-                    //     is_duplicate_post_content = true;
-                    //     break;
-                    // }
-                    if (req.params.id === posts[i].id) {
-                        // Found a valid post id and create old post object
-                        old_post = posts[i];
-                        is_valid_id = true;
-                        break;
+                // Iterate over all posts to find matching post id
+                for (let i = 0; i < exPosts.length; i++) {
+                    if (exPosts[i].id === req.params.postId) {
+                        isValidPostId = true;
                     }
                 }
-
                 // Update post
-                if (is_valid_id) {
+                if (isValidPostId) {
 
                     // Post's content exceeded acceptable length
                     if (req.body.content.length > MAX_POST_LENGTH) {
                         res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
                     } else {
-                        // function getOldPost(id) {
-                        //     return new Promise(id => {
-                        //         get_post(req.params.id);
-                        //     })
-                        // }
-                        // let old_post = getOldPost(req.params.id);
-                        put_post(req.params.id, req.body.content, req.body.hashtag, req.body.verification)
-                            .then(result => {
-                                const key = result.key;
-                                const data = result.data;
-                                const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-                                const updated_post = {
-                                    "id": key.id,
-                                    "content": data.content,
-                                    "hashtag": data.hashtag,
-                                    "verification": data.verification,
-                                    "dateTimeCreated": old_post.dateTimeCreated,
-                                    "interactions": data.interactions,
-                                    "status": data.status,
-                                    "self": self_link
-                                };
-
-                                // Send back the updated post as json or html
-                                if (accepts === 'application/json') {
-                                    res.status(303).set("Location", self_link).send(updated_post);
-                                } else {
-                                    let html_updated_post = json2html.render(updated_post, template);
-                                    res.status(303).set("Location", self_link).send(html_updated_post);
+                        originalExPost = getExPost(req.params.postId)
+                            .then(originalExPost => {
+                                originalExPostProperties = originalExPost[0];
+                                let dateTimeLastEdit = getDateTime();
+                                // Pass in remaining properties to edited post
+                                let editedExPostProperties = {
+                                    content: req.body.content,
+                                    hashtag: req.body.hashtag,
+                                    verification: req.body.verification,
+                                    dateTimeLastEdit: dateTimeLastEdit
                                 }
-                            })
+
+                                putExPost(req.params.postId, editedExPostProperties, originalExPostProperties)
+                                    .then(result => {
+                                        originalExPost = originalExPost[0];
+                                        const key = result.key;
+                                        const data = result.data;
+                                        const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                                        const updatedExPost = {
+                                            "id": key.id,
+                                            "content": data.content,
+                                            "hashtag": data.hashtag,
+                                            "verification": data.verification,
+                                            "dateTimeCreated": originalExPost.dateTimeCreated,
+                                            "dateTimeLastEdit": dateTimeLastEdit,
+                                            "interactions": originalExPost.interactions,
+                                            "status": originalExPost.status,
+                                            "self": selfLink
+                                        };
+
+                                        // Send back the updated post as json or html
+                                        if (accepts === 'application/json') {
+                                            res.status(303).set("Location", selfLink).send(updatedExPost);
+                                        } else {
+                                            let htmlUpdateExPost = json2html.render(updatedExPost, template);
+                                            res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
+                                        }
+                                    })
+
+                            });
+
                     }
                 }
             })
@@ -334,14 +346,14 @@ router.put('/:id', function (req, res) {
 //     } else if (!accepts) {
 //         res.status(406).send('Not Acceptable');
 //     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-//         const posts = get_posts()
+//         const posts = getExPosts()
 //             .then((posts) => {
-//                 let old_post;
-//                 let new_post_content = req.body.content;
-//                 let new_post_hashtag = req.body.hashtag;
-//                 let new_post_verification = req.body.verification;
+//                 let originalExPost;
+//                 let newExPost_content = req.body.content;
+//                 let newExPost_hashtag = req.body.hashtag;
+//                 let newExPost_verification = req.body.verification;
 //                 let is_duplicate_post_content = false;
-//                 let is_valid_id = false;
+//                 let isValidPostId = false;
 
 //                 // // Check for a post content that already exists
 //                 // for (let i = 0; i < posts.length; i++) {
@@ -353,25 +365,25 @@ router.put('/:id', function (req, res) {
 //                 //     }
 //                 //     if (req.params.id === posts[i].id) {
 //                 //         // Found a valid post id and create old post object
-//                 //         old_post = posts[i];
-//                 //         is_valid_id = true;
+//                 //         originalExPost = posts[i];
+//                 //         isValidPostId = true;
 //                 //     }
 //                 // }
 //                 // Update post
-//                 if (!is_duplicate_post_content && is_valid_id) {
-//                     if (new_post_content === undefined) {
-//                         new_post_content = posts[0].content;
+//                 if (!is_duplicate_post_content && isValidPostId) {
+//                     if (newExPost_content === undefined) {
+//                         newExPost_content = posts[0].content;
 //                     }
 
-//                     if (new_post_hashtag === undefined) {
-//                         new_post_hashtag = posts[0].hashtag;
+//                     if (newExPost_hashtag === undefined) {
+//                         newExPost_hashtag = posts[0].hashtag;
 //                     }
 
-//                     if (new_post_verification === undefined) {
-//                         new_post_verification = posts[0].verification;
+//                     if (newExPost_verification === undefined) {
+//                         newExPost_verification = posts[0].verification;
 //                     }
 
-//                     let content_checcheck_content_and_length(new_post_content);
+//                     let content_checcheck_content_and_length(newExPost_content);
 
 //                     // Post's content exceeded acceptable length
 //                     if (content_check[0] === false) {
@@ -386,24 +398,24 @@ router.put('/:id', function (req, res) {
 
 //                     // Update post with valid data
 //                     if (content_check[0] && content_check[1]) {
-//                         put_post(req.params.id, new_post_content, new_post_hashtag, new_post_verification)
+//                         putExPost(req.params.id, newExPost_content, newExPost_hashtag, newExPost_verification)
 //                             .then(result => {
 //                                 const key = result.key;
 //                                 const data = result.data;
-//                                 const self_link = req.get("host") + req.baseUrl + "/" + key.id;
-//                                 const updated_post = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": self_link };
+//                                 const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+//                                 const updatedExPost = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": selfLink };
 
 //                                 // Send back the updated post as json or html
 //                                 if (accepts === 'application/json') {
-//                                     res.status(200).set("Location", self_link).send(updated_post);
+//                                     res.status(200).set("Location", selfLink).send(updatedExPost);
 //                                 } else {
-//                                     let html_updated_post = json2html.render(updated_post, template);
-//                                     res.status(200).set("Location", self_link).send(html_updated_post);
+//                                     let htmlUpdateExPost = json2html.render(updatedExPost, template);
+//                                     res.status(200).set("Location", selfLink).send(htmlUpdateExPost);
 //                                 }
 //                             })
 //                     }
 
-//                 } else if (!is_valid_id && !is_duplicate_post_content) {
+//                 } else if (!isValidPostId && !is_duplicate_post_content) {
 //                     res.status(403).json({ 'Error': 'A post with that id does not exist' }).end();
 //                 }
 //             })
@@ -424,7 +436,7 @@ router.patch('/', function (req, res) {
 
 // Get posts
 router.get('/', function (req, res) {
-    const posts = get_posts()
+    const posts = getExPosts()
         .then((posts) => {
             let posts_without_interactions = []
             for (let i = 0; i < posts.length; i++) {
@@ -441,11 +453,11 @@ router.get('/', function (req, res) {
 });
 
 // Get a post
-router.get('/:id', function (req, res) {
-    if (req.params.id < 1000000000000000 || req.params.id === 'null') {
+router.get('/:postId', function (req, res) {
+    if (req.params.postId < 1000000000000000 || req.params.postId === 'null') {
         res.status(404).json({ 'Error': 'No post with this id exists' });
     } else {
-        const posts = get_post(req.params.id)
+        const posts = getExPost(req.params.postId)
             .then(post => {
                 const accepts = req.accepts(['application/json', 'text/html']);
 
@@ -453,9 +465,9 @@ router.get('/:id', function (req, res) {
                     res.status(406).send('Not Acceptable');
                 } else if (accepts === 'application/json') {
                     const data = post[0];
-                    const self_link = req.get("host") + req.baseUrl + "/" + data.id;
-                    const new_post = { "id": data.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": self_link };
-                    res.status(200).json(new_post);
+                    const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
+                    const newExPost = { "id": data.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": selfLink };
+                    res.status(200).json(newExPost);
                 } else if (accepts === 'text/html') {
                     res.status(200).send(json2html(post).slice(1, -1));
                 } else { res.status(500).send('Content type got messed up!'); }
