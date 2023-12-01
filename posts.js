@@ -94,7 +94,7 @@ function deleteInteraction(interactionId) {
 function putExPost(postId, editedExPostProperties, originalExPostProperties) {
     const key = datastore.key([POST, parseInt(postId, 10)]);
 
-    let updatedExPost = {
+    let editedExPost = {
         "content": editedExPostProperties.content,
         "hashtag": editedExPostProperties.hashtag,
         "verification": editedExPostProperties.verification,
@@ -105,8 +105,28 @@ function putExPost(postId, editedExPostProperties, originalExPostProperties) {
         "self": originalExPostProperties.self
     };
 
-    return datastore.save({ "key": key, "data": updatedExPost }).then(() => {
-        return { key, data: updatedExPost }
+    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
+        return { key, data: editedExPost }
+    });
+}
+
+// Edit an eX Post
+function patchExPost(postId, editedExPostProperties) {
+    const key = datastore.key([POST, parseInt(postId, 10)]);
+
+    let editedExPost = {
+        "content": editedExPostProperties.content,
+        "hashtag": editedExPostProperties.hashtag,
+        "verification": editedExPostProperties.verification,
+        "dateTimeCreated": editedExPostProperties.dateTimeCreated,
+        "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
+        "interactions": editedExPostProperties.interactions,
+        "status": editedExPostProperties.status,
+        "self": editedExPostProperties.self
+    };
+
+    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
+        return { key, data: editedExPost }
     });
 }
 
@@ -222,8 +242,7 @@ router.delete('/', function (req, res) {
     res.status(405).end();
 });
 
-// Edit a post
-// TODO: only edit if verified user
+// Edit an eX post
 router.put('/:postId', function (req, res) {
     const accepts = req.accepts(['application/json', 'text/html']);
 
@@ -259,115 +278,104 @@ router.put('/:postId', function (req, res) {
                             const key = result.key;
                             const data = result.data;
                             const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-                            const updatedExPost = {
+                            const editedExPost = {
                                 "id": key.id,
                                 "content": data.content,
                                 "hashtag": data.hashtag,
                                 "verification": data.verification,
                                 "dateTimeCreated": originalExPost.dateTimeCreated,
                                 "dateTimeLastEdit": dateTimeLastEdit,
-                                "interactions": originalExPost.interactions,
                                 "status": originalExPost.status,
                                 "self": selfLink
                             };
 
                             // Send back the updated post as json or html
                             if (accepts === 'application/json') {
-                                res.status(303).set("Location", selfLink).send(updatedExPost);
+                                res.status(303).set("Location", selfLink).send(editedExPost);
                             } else {
-                                let htmlUpdateExPost = json2html.render(updatedExPost, template);
+                                let htmlUpdateExPost = json2html.render(editedExPost, template);
                                 res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
                             }
                         })
                 }
             })
-
     } else { res.status(500).send('Content type got messed up!'); }
 });
 
-// Edit a post
-// router.patch('/:id', function (req, res) {
-//     const accepts = req.accepts(['application/json', 'text/html']);
-//     if (req.params.id < 1000000000000000 || req.params.id === 'null') {
-//         res.status(404).json({ 'Error': 'No post with this id exists' });
-//     } else if (!accepts) {
-//         res.status(406).send('Not Acceptable');
-//     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-//         const posts = getExPosts()
-//             .then((posts) => {
-//                 let originalExPost;
-//                 let newExPost_content = req.body.content;
-//                 let newExPost_hashtag = req.body.hashtag;
-//                 let newExPost_verification = req.body.verification;
-//                 let is_duplicate_post_content = false;
-//                 let isValidPostId = false;
+// Edit an eX post
+router.patch('/:postId', function (req, res) {
+    const accepts = req.accepts(['application/json', 'text/html']);
+    let contentLength;
 
-//                 // // Check for a post content that already exists
-//                 // for (let i = 0; i < posts.length; i++) {
-//                 //     if (req.body.content === posts[i].content) {
-//                 //         // Cannot update a post's content to one that already exists
-//                 //         res.status(403).json({ 'Error': 'A post with that content already exists' });
-//                 //         is_duplicate_post_content = true;
-//                 //         break;
-//                 //     }
-//                 //     if (req.params.id === posts[i].id) {
-//                 //         // Found a valid post id and create old post object
-//                 //         originalExPost = posts[i];
-//                 //         isValidPostId = true;
-//                 //     }
-//                 // }
-//                 // Update post
-//                 if (!is_duplicate_post_content && isValidPostId) {
-//                     if (newExPost_content === undefined) {
-//                         newExPost_content = posts[0].content;
-//                     }
+    // Handle ex Post edits that do not update content
+    try {
+        contentLength = req.body.content.length;
+    } catch {
+        contentLength = 0;
+    }
 
-//                     if (newExPost_hashtag === undefined) {
-//                         newExPost_hashtag = posts[0].hashtag;
-//                     }
+    if (contentLength > MAX_POST_LENGTH) {
+        res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' });
+    } if (!accepts) {
+        res.status(406).json({ 'Error': 'Not Acceptable' });
+    } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
+        const originalExPost = getExPost(req.params.postId)
+            .then(originalExPost => {
+                originalExPost = originalExPost[0];
 
-//                     if (newExPost_verification === undefined) {
-//                         newExPost_verification = posts[0].verification;
-//                     }
+                if (originalExPost === undefined) {
+                    res.status(404).end();
+                } else if (originalExPost.verification === false) {
+                    res.status(403).json({ 'Forbidden': 'Unverified users may not edit eX posts.' });
+                } else {
+                    let dateTimeLastEdit = getDateTime();
+                    let editedExPost;
+                    // Pass in remaining properties to edited post
 
-//                     let content_checcheck_content_and_length(newExPost_content);
 
-//                     // Post's content exceeded acceptable length
-//                     if (content_check[0] === false) {
-//                         res.status(403).json({ 'Error': 'Post contents may only be up to 140 characters long' }).end();
-//                         return;
-//                     }
-//                     // Post's content contains unacceptable character(s)
-//                     if (content_check[1] === false) {
-//                         res.status(403).json({ 'Error': 'The characters "~!@#$%^&*()_+" are not allowed in a post' }).end();
-//                         return;
-//                     }
+                    if (req.body.conent !== undefined) {
+                        originalExPost.conent = req.body.content;
+                    }
 
-//                     // Update post with valid data
-//                     if (content_check[0] && content_check[1]) {
-//                         putExPost(req.params.id, newExPost_content, newExPost_hashtag, newExPost_verification)
-//                             .then(result => {
-//                                 const key = result.key;
-//                                 const data = result.data;
-//                                 const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-//                                 const updatedExPost = { "id": key.id, "content": data.content, "hashtag": data.hashtag, "verification": data.verification, "self": selfLink };
+                    if (req.body.hashtag !== undefined) {
+                        originalExPost.hashtag = req.body.hashtag;
+                    }
 
-//                                 // Send back the updated post as json or html
-//                                 if (accepts === 'application/json') {
-//                                     res.status(200).set("Location", selfLink).send(updatedExPost);
-//                                 } else {
-//                                     let htmlUpdateExPost = json2html.render(updatedExPost, template);
-//                                     res.status(200).set("Location", selfLink).send(htmlUpdateExPost);
-//                                 }
-//                             })
-//                     }
+                    if (req.body.verification !== undefined) {
+                        originalExPost.verification = req.body.verification;
+                    }
 
-//                 } else if (!isValidPostId && !is_duplicate_post_content) {
-//                     res.status(403).json({ 'Error': 'A post with that id does not exist' }).end();
-//                 }
-//             })
-//     } else { res.status(500).send('Content type got messed up!'); }
-// });
+                    originalExPost.dateTimeLastEdit = dateTimeLastEdit;
+                    editedExPost = originalExPost;
+
+                    patchExPost(req.params.postId, editedExPost)
+                        .then(result => {
+                            const key = result.key;
+                            const data = result.data;
+                            const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                            const editedExPost = {
+                                "id": key.id,
+                                "content": data.content,
+                                "hashtag": data.hashtag,
+                                "verification": data.verification,
+                                "dateTimeCreated": originalExPost.dateTimeCreated,
+                                "dateTimeLastEdit": dateTimeLastEdit,
+                                "status": originalExPost.status,
+                                "self": selfLink
+                            };
+
+                            // Send back the updated post as json or html
+                            if (accepts === 'application/json') {
+                                res.status(303).set("Location", selfLink).send(editedExPost);
+                            } else {
+                                let htmlUpdateExPost = json2html.render(editedExPost, template);
+                                res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
+                            }
+                        })
+                }
+            })
+    } else { res.status(500).send('Content type got messed up!'); }
+});
 
 // Edit posts attempt
 router.put('/', function (req, res) {
@@ -375,7 +383,7 @@ router.put('/', function (req, res) {
     res.status(405).end();
 });
 
-// Edit posts attempt
+// Edit all eX Posts attempt
 router.patch('/', function (req, res) {
     res.set('Accept', 'GET, POST');
     res.status(405).end();
