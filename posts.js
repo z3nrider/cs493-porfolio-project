@@ -1,6 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const app = express();
+
 const router = express.Router();
+const login = express.Router();
+
 const ds = require('./datastore');
 const datastore = ds.datastore;
 const POST = "Post";
@@ -154,6 +158,9 @@ function deleteExPost(postId) {
 
 /* ------------- Begin Controller Functions ------------- */
 
+login.get('/', function (req, res) {
+    res.send('youre gonna login some day');
+});
 // Create an eX Post
 router.post('/', function (req, res) {
     if (req.get('content-type') !== 'application/json') {
@@ -446,4 +453,5 @@ router.patch('/', function (req, res) {
 
 /* ------------- End Controller Functions ------------- */
 
+app.use('/login', login);
 module.exports = router;
