@@ -44,50 +44,24 @@ function postExPost(exPostContents) {
     });
 }
 
-// Interact with an eX Post
-function putInteractWithExPost(postId, interactionId, body) {
-    const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-    const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-
-    return datastore.get(exPostKey)
-        .then((exPost) => {
-
-            let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
-            exPost[0].interactions.push(newInteraction);
-            previousReposts = exPost[0].status.reposts;
-            previousLikes = exPost[0].status.likes;
-            previousViews = exPost[0].status.views;
-
-            // Update number of reposts if reposted
-            if (body.repost === true) {
-                let currentReposts = previousReposts += body.repost;
-                exPost[0].status.reposts = currentReposts;
-            }
-
-            // Update number of likes if liked
-            if (body.like === true) {
-                currentLikes = previousLikes += body.like;
-                exPost[0].status.likes = currentLikes;
-            }
-
-            // Views always increment
-            exPost[0].status.views = previousViews += 1;
-
-            console.log("Interacted with eX Post:\n", exPost[0]);
-            return datastore.save({ "key": exPostKey, "data": exPost[0] });
-        })
+// View all eX Posts
+function getExPosts() {
+    const q = datastore.createQuery(POST);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(ds.fromDatastore);
+    });
 }
 
-// Delete an eX Post
-function deleteExPost(postId) {
+// View an eX post
+function getExPost(postId) {
     const key = datastore.key([POST, parseInt(postId, 10)]);
-    return datastore.delete(key);
-}
-
-// Delete an associated interaction
-function deleteInteraction(interactionId) {
-    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-    return datastore.delete(key);
+    return datastore.get(key).then((entity) => {
+        if (entity[0] === undefined || entity[0] === null) {
+            return entity;
+        } else {
+            return entity.map(ds.fromDatastore);
+        }
+    });
 }
 
 // Edit an eX Post
@@ -130,30 +104,55 @@ function patchExPost(postId, editedExPostProperties) {
     });
 }
 
-// View all eX posts
-function getExPosts() {
-    const q = datastore.createQuery(POST);
-    return datastore.runQuery(q).then((entities) => {
-        return entities[0].map(ds.fromDatastore);
-    });
+// Interact with an eX Post
+function putInteractWithExPost(postId, interactionId, body) {
+    const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
+    const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
+
+    return datastore.get(exPostKey)
+        .then((exPost) => {
+
+            let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
+            exPost[0].interactions.push(newInteraction);
+            previousReposts = exPost[0].status.reposts;
+            previousLikes = exPost[0].status.likes;
+            previousViews = exPost[0].status.views;
+
+            // Update number of reposts if reposted
+            if (body.repost === true) {
+                let currentReposts = previousReposts += body.repost;
+                exPost[0].status.reposts = currentReposts;
+            }
+
+            // Update number of likes if liked
+            if (body.like === true) {
+                currentLikes = previousLikes += body.like;
+                exPost[0].status.likes = currentLikes;
+            }
+
+            // Views always increment
+            exPost[0].status.views = previousViews += 1;
+
+            console.log("Interacted with eX Post:\n", exPost[0]);
+            return datastore.save({ "key": exPostKey, "data": exPost[0] });
+        })
 }
 
-// View an eX post
-function getExPost(postId) {
+// Delete an associated interaction
+function deleteInteraction(interactionId) {
+    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
+    return datastore.delete(key);
+}
+
+// Delete an eX Post
+function deleteExPost(postId) {
     const key = datastore.key([POST, parseInt(postId, 10)]);
-    return datastore.get(key).then((entity) => {
-        if (entity[0] === undefined || entity[0] === null) {
-            return entity;
-        } else {
-            return entity.map(ds.fromDatastore);
-        }
-    });
+    return datastore.delete(key);
 }
 
 /* ------------- End Model Functions ------------- */
 
 /* ------------- Begin Controller Functions ------------- */
-
 
 // Create an eX Post
 router.post('/', function (req, res) {
@@ -196,50 +195,59 @@ router.post('/', function (req, res) {
     }
 });
 
-router.put('/:postId/interactions/:interactionId', function (req, res) {
-    // validate eX post id first
-    const postId = req.params.postId;
-    const interactionId = req.params.interactionId;
+// Get all eX Posts
+router.get('/', function (req, res) {
+    const posts = getExPosts()
+        .then((posts) => {
+            let posts_without_interactions = []
 
-    if (postId < 1000000000000000 || interactionId < 1000000000000000) {
-        res.status(404).json({ 'Error': 'The specified eX Post and/or interaction does not exist' });
-    } else {
-        //TODO: verify that interactionId is a valid id. Right now, I can PUT any num on a post.
-        putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
-            .then(result => {
-                if (result === -1) {
-                    // TODO: the interaction id can only be used once?
-                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
-                } else {
-                    //TODO: is 204 right status to send?
-                    res.status(204).end();
-                }
-            })
-    }
+            // Omit certain properties when requesting all eX Posts
+            for (let i = 0; i < posts.length; i++) {
+                let curr_post = {
+                    id: posts[i].id,
+                    content: posts[i].content,
+                    hashtag: posts[i].hashtag,
+                    status: posts[i].status
+                };
+                posts_without_interactions.push(curr_post);
+            }
+            res.status(200).json(posts_without_interactions);
+        });
 });
 
-// Delete an eX Post
-router.delete('/:postId', function (req, res) {
+// Get an eX Post
+router.get('/:postId', function (req, res) {
     const exPost = getExPost(req.params.postId)
         .then(exPost => {
-            const data = exPost[0];
+            const accepts = req.accepts(['application/json', 'text/html']);
 
-            if (data === undefined) {
-                res.status(404).end();
-            } else {
-                //TODO: need to delete associated interactions here
-                deleteExPost(req.params.postId)
-                    .then(result => {
-                        res.status(204).end();
-                    })
-            }
-        })
-});
+            if (!accepts) {
+                res.status(406).send('Not Acceptable');
+            } else if (accepts === 'application/json') {
+                const data = exPost[0];
+                const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
 
-// Delete posts attempt
-router.delete('/', function (req, res) {
-    res.set('Accept', 'GET, POST');
-    res.status(405).end();
+                const exPost = {
+                    "id": data.id,
+                    "content": data.content,  // Content of the eX post
+                    "hashtag": data.hashtag,
+                    "verification": data.verification,  // A boolean that shows user verification status
+                    "dateTimeCreated": data.dateTimeCreated,
+                    "dateTimeLastEdit": data.dateTimeLastEdit,
+                    "interactions": data.interactions,  // An array of interactions that contain interaction events
+                    "status": data.status,  // Cumulative interaction events
+                    "self": selfLink
+                }
+                res.status(200).json(exPost);
+            } else if (accepts === 'text/html') {
+                const exPostHTML = JSON.stringify(exPost[0]);
+                res.status(200).send(`<p>${exPostHTML}</p>`);
+            } else { res.status(500).send('Content type got messed up!'); }
+
+            // if (exPost[0] === undefined || exPost[0] === null) {
+            //     res.status(404).json({ 'Error': 'No post with this id exists' });
+            // }
+        });
 });
 
 // Edit an eX post
@@ -377,71 +385,63 @@ router.patch('/:postId', function (req, res) {
     } else { res.status(500).send('Content type got messed up!'); }
 });
 
-// Edit posts attempt
+// Edit an eX post's interactions (unlike or unrepost)
+router.put('/:postId/interactions/:interactionId', function (req, res) {
+    // validate eX post id first
+    const postId = req.params.postId;
+    const interactionId = req.params.interactionId;
+
+    if (postId < 1000000000000000 || interactionId < 1000000000000000) {
+        res.status(404).json({ 'Error': 'The specified eX Post and/or interaction does not exist' });
+    } else {
+        //TODO: verify that interactionId is a valid id. Right now, I can PUT any num on a post.
+        putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
+            .then(result => {
+                if (result === -1) {
+                    // TODO: the interaction id can only be used once?
+                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
+                } else {
+                    //TODO: is 204 right status to send?
+                    res.status(204).end();
+                }
+            })
+    }
+});
+
+// Delete an eX Post
+router.delete('/:postId', function (req, res) {
+    const exPost = getExPost(req.params.postId)
+        .then(exPost => {
+            const data = exPost[0];
+
+            if (data === undefined) {
+                res.status(404).end();
+            } else {
+                //TODO: need to delete associated interactions here
+                deleteExPost(req.params.postId)
+                    .then(result => {
+                        res.status(204).end();
+                    })
+            }
+        })
+});
+
+// Delete all eX Posts (attempt)
+router.delete('/', function (req, res) {
+    res.set('Accept', 'GET, POST');
+    res.status(405).end();
+});
+
+// Edit all eX Posts (attempt)
 router.put('/', function (req, res) {
     res.set('Accept', 'GET, POST');
     res.status(405).end();
 });
 
-// Edit all eX Posts attempt
+// Edit all eX Posts (attempt)
 router.patch('/', function (req, res) {
     res.set('Accept', 'GET, POST');
     res.status(405).end();
-});
-
-// Get posts
-router.get('/', function (req, res) {
-    const posts = getExPosts()
-        .then((posts) => {
-            let posts_without_interactions = []
-
-            // Omit certain properties when requesting all eX Posts
-            for (let i = 0; i < posts.length; i++) {
-                let curr_post = {
-                    id: posts[i].id,
-                    content: posts[i].content,
-                    hashtag: posts[i].hashtag,
-                    status: posts[i].status
-                };
-                posts_without_interactions.push(curr_post);
-            }
-            res.status(200).json(posts_without_interactions);
-        });
-});
-
-// Get a post
-router.get('/:postId', function (req, res) {
-    const exPost = getExPost(req.params.postId)
-        .then(exPost => {
-            const accepts = req.accepts(['application/json', 'text/html']);
-
-            if (!accepts) {
-                res.status(406).send('Not Acceptable');
-            } else if (accepts === 'application/json') {
-                const data = exPost[0];
-                const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
-
-                const exPost = {
-                    "id": data.id,
-                    "content": data.content,  // Content of the eX post
-                    "hashtag": data.hashtag,
-                    "verification": data.verification,  // A boolean that shows user verification status
-                    "dateTimeCreated": data.dateTimeCreated,
-                    "dateTimeLastEdit": data.dateTimeLastEdit,
-                    "interactions": data.interactions,  // An array of interactions that contain interaction events
-                    "status": data.status,  // Cumulative interaction events
-                    "self": selfLink
-                }
-                res.status(200).json(exPost);
-            } else if (accepts === 'text/html') {
-                const exPostHTML = JSON.stringify(exPost[0]);
-                res.status(200).send(`<p>${exPostHTML}</p>`);
-            } else { res.status(500).send('Content type got messed up!'); }
-
-            // if (exPost[0] === undefined || exPost[0] === null) {
-            //     res.status(404).json({ 'Error': 'No post with this id exists' });
-            // }
-        });
 });
 
 /* ------------- End Controller Functions ------------- */
