@@ -200,9 +200,9 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
 
 // Delete an eX Post
 router.delete('/:postId', function (req, res) {
-    const post = getExPost(req.params.postId)
-        .then(post => {
-            const data = post[0];
+    const exPost = getExPost(req.params.postId)
+        .then(exPost => {
+            const data = exPost[0];
 
             if (data === undefined) {
                 res.status(404).end();
@@ -226,76 +226,62 @@ router.delete('/', function (req, res) {
 // TODO: only edit if verified user
 router.put('/:postId', function (req, res) {
     const accepts = req.accepts(['application/json', 'text/html']);
-    if (req.params.postId < 1000000000000000 || req.params.postId === 'null') {
-        res.status(404).json({ 'Error': 'No eX post with this id exists' });
-    } else if (req.body.content === undefined ||
+
+    if (req.body.content === undefined ||
         req.body.hashtag === undefined ||
         req.body.verification === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
+    } else if (req.body.content.length > MAX_POST_LENGTH) {
+        res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' });
     } else if (!accepts) {
-        res.status(406).send('Not Acceptable');
+        res.status(406).json({ 'Error': 'Not Acceptable' });
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const exPosts = getExPosts()
-            .then((exPosts) => {
-                let isValidPostId = false;
+        const originalExPost = getExPost(req.params.postId)
+            .then(originalExPost => {
+                originalExPost = originalExPost[0];
 
-                // Iterate over all posts to find matching post id
-                for (let i = 0; i < exPosts.length; i++) {
-                    if (exPosts[i].id === req.params.postId) {
-                        isValidPostId = true;
+                if (originalExPost === undefined) {
+                    res.status(404).end();
+                } else if (originalExPost.verification === false) {
+                    res.status(403).json({ 'Forbidden': 'Unverified users may not edit eX posts.' });
+                } else {
+                    let dateTimeLastEdit = getDateTime();
+                    // Pass in remaining properties to edited post
+                    let editedExPost = {
+                        content: req.body.content,
+                        hashtag: req.body.hashtag,
+                        verification: req.body.verification,
+                        dateTimeLastEdit: dateTimeLastEdit
                     }
-                }
-                // Update post
-                if (isValidPostId) {
 
-                    // Post's content exceeded acceptable length
-                    if (req.body.content.length > MAX_POST_LENGTH) {
-                        res.status(403).json({ 'Error': 'Posts may only be up to 140 characters long' }).end();
-                    } else {
-                        originalExPost = getExPost(req.params.postId)
-                            .then(originalExPost => {
-                                originalExPostProperties = originalExPost[0];
-                                let dateTimeLastEdit = getDateTime();
-                                // Pass in remaining properties to edited post
-                                let editedExPostProperties = {
-                                    content: req.body.content,
-                                    hashtag: req.body.hashtag,
-                                    verification: req.body.verification,
-                                    dateTimeLastEdit: dateTimeLastEdit
-                                }
+                    putExPost(req.params.postId, editedExPost, originalExPost)
+                        .then(result => {
+                            const key = result.key;
+                            const data = result.data;
+                            const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                            const updatedExPost = {
+                                "id": key.id,
+                                "content": data.content,
+                                "hashtag": data.hashtag,
+                                "verification": data.verification,
+                                "dateTimeCreated": originalExPost.dateTimeCreated,
+                                "dateTimeLastEdit": dateTimeLastEdit,
+                                "interactions": originalExPost.interactions,
+                                "status": originalExPost.status,
+                                "self": selfLink
+                            };
 
-                                putExPost(req.params.postId, editedExPostProperties, originalExPostProperties)
-                                    .then(result => {
-                                        originalExPost = originalExPost[0];
-                                        const key = result.key;
-                                        const data = result.data;
-                                        const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-                                        const updatedExPost = {
-                                            "id": key.id,
-                                            "content": data.content,
-                                            "hashtag": data.hashtag,
-                                            "verification": data.verification,
-                                            "dateTimeCreated": originalExPost.dateTimeCreated,
-                                            "dateTimeLastEdit": dateTimeLastEdit,
-                                            "interactions": originalExPost.interactions,
-                                            "status": originalExPost.status,
-                                            "self": selfLink
-                                        };
-
-                                        // Send back the updated post as json or html
-                                        if (accepts === 'application/json') {
-                                            res.status(303).set("Location", selfLink).send(updatedExPost);
-                                        } else {
-                                            let htmlUpdateExPost = json2html.render(updatedExPost, template);
-                                            res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
-                                        }
-                                    })
-
-                            });
-
-                    }
+                            // Send back the updated post as json or html
+                            if (accepts === 'application/json') {
+                                res.status(303).set("Location", selfLink).send(updatedExPost);
+                            } else {
+                                let htmlUpdateExPost = json2html.render(updatedExPost, template);
+                                res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
+                            }
+                        })
                 }
             })
+
     } else { res.status(500).send('Content type got messed up!'); }
 });
 
