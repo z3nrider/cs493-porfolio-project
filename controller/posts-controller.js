@@ -1,5 +1,3 @@
-// import * as Model from '../model/posts-model';
-const postExPost = require('../model/posts-model')
 const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
@@ -8,13 +6,9 @@ const router = express.Router();
 const login = express.Router();
 
 const modelFunctions = require('../model/posts-model');
-// const getDateTime = require('../model/posts-model');
 const ds = require('../database/datastore');
-const datastore = ds.datastore;
-const POST = "Post";
-const INTERACTION = "Interaction";
+
 const json2html = require('node-json2html');
-const { get } = require('request');
 const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
 const MAX_POST_LENGTH = 140;
 
@@ -70,19 +64,19 @@ router.post('/', function (req, res) {
 router.get('/', function (req, res) {
     const posts = modelFunctions.getExPosts()
         .then((posts) => {
-            let posts_without_interactions = []
+            let exPostsWithoutInteractions = []
 
             // Omit certain properties when requesting all eX Posts
             for (let i = 0; i < posts.length; i++) {
-                let curr_post = {
+                let currentExPost = {
                     id: posts[i].id,
                     content: posts[i].content,
                     hashtag: posts[i].hashtag,
                     status: posts[i].status
                 };
-                posts_without_interactions.push(curr_post);
+                exPostsWithoutInteractions.push(currentExPost);
             }
-            res.status(200).json(posts_without_interactions);
+            res.status(200).json(exPostsWithoutInteractions);
         });
 });
 

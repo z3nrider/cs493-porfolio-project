@@ -1,8 +1,6 @@
-const express = require('express');
 const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
-
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
