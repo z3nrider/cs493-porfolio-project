@@ -5,6 +5,8 @@ const app = express();
 const router = express.Router();
 const login = express.Router();
 
+const modelFunctions = require('../model/posts-model');
+// const getDateTime = require('../model/posts-model');
 const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
@@ -14,147 +16,7 @@ const { get } = require('request');
 const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
 const MAX_POST_LENGTH = 140;
 
-// Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
-function getDateTime() {
-    let today = new Date();
-    let date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
-    let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
-    let dateTime = date + ' ' + time;
-
-    return dateTime;
-}
-
 router.use(bodyParser.json());
-
-/* ------------- Begin Post Model Functions ------------- */
-
-// Create an eX Post
-function postExPost(exPostContents) {
-    let key = datastore.key(POST);
-    let dateTime = getDateTime();
-
-    const newExPost = {
-        "content": exPostContents.content,  // Content of the eX post
-        "hashtag": exPostContents.hashtag,
-        "verification": exPostContents.verification,  // A boolean that shows user verification status
-        "dateTimeCreated": dateTime,
-        "dateTimeLastEdit": null,
-        "interactions": [],  // An array of interactions that contain interaction events
-        "status": { reposts: 0, likes: 0, views: 0 }  // Cumulative interaction events
-    }
-
-    return datastore.save({ "key": key, "data": newExPost }).then(() => {
-        return { key, data: newExPost }
-    });
-}
-
-// View all eX Posts
-function getExPosts() {
-    const q = datastore.createQuery(POST);
-    return datastore.runQuery(q).then((entities) => {
-        return entities[0].map(ds.fromDatastore);
-    });
-}
-
-// View an eX post
-function getExPost(postId) {
-    const key = datastore.key([POST, parseInt(postId, 10)]);
-    return datastore.get(key).then((entity) => {
-        if (entity[0] === undefined || entity[0] === null) {
-            return entity;
-        } else {
-            return entity.map(ds.fromDatastore);
-        }
-    });
-}
-
-// Edit an eX Post
-function putExPost(postId, editedExPostProperties, originalExPostProperties) {
-    const key = datastore.key([POST, parseInt(postId, 10)]);
-
-    let editedExPost = {
-        "content": editedExPostProperties.content,
-        "hashtag": editedExPostProperties.hashtag,
-        "verification": editedExPostProperties.verification,
-        "dateTimeCreated": originalExPostProperties.dateTimeCreated,
-        "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
-        "interactions": originalExPostProperties.interactions,
-        "status": originalExPostProperties.status,
-        "self": originalExPostProperties.self
-    };
-
-    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
-        return { key, data: editedExPost }
-    });
-}
-
-// Edit an eX Post
-function patchExPost(postId, editedExPostProperties) {
-    const key = datastore.key([POST, parseInt(postId, 10)]);
-
-    let editedExPost = {
-        "content": editedExPostProperties.content,
-        "hashtag": editedExPostProperties.hashtag,
-        "verification": editedExPostProperties.verification,
-        "dateTimeCreated": editedExPostProperties.dateTimeCreated,
-        "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
-        "interactions": editedExPostProperties.interactions,
-        "status": editedExPostProperties.status,
-        "self": editedExPostProperties.self
-    };
-
-    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
-        return { key, data: editedExPost }
-    });
-}
-
-// Interact with an eX Post
-function putInteractWithExPost(postId, interactionId, body) {
-    const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-    const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-
-    return datastore.get(exPostKey)
-        .then((exPost) => {
-
-            let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
-            exPost[0].interactions.push(newInteraction);
-            previousReposts = exPost[0].status.reposts;
-            previousLikes = exPost[0].status.likes;
-            previousViews = exPost[0].status.views;
-
-            // Update number of reposts if reposted
-            if (body.repost === true) {
-                let currentReposts = previousReposts += body.repost;
-                exPost[0].status.reposts = currentReposts;
-            }
-
-            // Update number of likes if liked
-            if (body.like === true) {
-                currentLikes = previousLikes += body.like;
-                exPost[0].status.likes = currentLikes;
-            }
-
-            // Views always increment
-            exPost[0].status.views = previousViews += 1;
-
-            console.log("Interacted with eX Post:\n", exPost[0]);
-            return datastore.save({ "key": exPostKey, "data": exPost[0] });
-        })
-}
-
-// Delete an associated interaction
-function deleteInteraction(interactionId) {
-    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-    return datastore.delete(key);
-}
-
-// Delete an eX Post
-function deleteExPost(postId) {
-    const key = datastore.key([POST, parseInt(postId, 10)]);
-    return datastore.delete(key);
-}
-
-/* ------------- End Model Functions ------------- */
 
 /* ------------- Begin Controller Functions ------------- */
 
@@ -179,7 +41,7 @@ router.post('/', function (req, res) {
             verification: req.body.verification
         }
 
-        postExPost(exPostContents)
+        modelFunctions.postExPost(exPostContents)
             .then(result => {
                 // Create a new eX post of acceptable length
                 const key = result.key;
@@ -204,7 +66,7 @@ router.post('/', function (req, res) {
 
 // Get all eX Posts
 router.get('/', function (req, res) {
-    const posts = getExPosts()
+    const posts = modelFunctions.getExPosts()
         .then((posts) => {
             let posts_without_interactions = []
 
@@ -224,7 +86,7 @@ router.get('/', function (req, res) {
 
 // Get an eX Post
 router.get('/:postId', function (req, res) {
-    const exPost = getExPost(req.params.postId)
+    const exPost = modelFunctions.getExPost(req.params.postId)
         .then(exPost => {
             const accepts = req.accepts(['application/json', 'text/html']);
 
@@ -270,7 +132,7 @@ router.put('/:postId', function (req, res) {
     } else if (!accepts) {
         res.status(406).json({ 'Error': 'Not Acceptable' });
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const originalExPost = getExPost(req.params.postId)
+        const originalExPost = modelFunctions.getExPost(req.params.postId)
             .then(originalExPost => {
                 originalExPost = originalExPost[0];
 
@@ -279,7 +141,7 @@ router.put('/:postId', function (req, res) {
                 } else if (originalExPost.verification === false) {
                     res.status(403).json({ 'Forbidden': 'Unverified users may not edit eX posts.' });
                 } else {
-                    let dateTimeLastEdit = getDateTime();
+                    let dateTimeLastEdit = modelFunctions.getDateTime();
                     // Pass in remaining properties to edited post
                     let editedExPost = {
                         content: req.body.content,
@@ -288,7 +150,7 @@ router.put('/:postId', function (req, res) {
                         dateTimeLastEdit: dateTimeLastEdit
                     }
 
-                    putExPost(req.params.postId, editedExPost, originalExPost)
+                    modelFunctions.putExPost(req.params.postId, editedExPost, originalExPost)
                         .then(result => {
                             const key = result.key;
                             const data = result.data;
@@ -334,7 +196,7 @@ router.patch('/:postId', function (req, res) {
     } if (!accepts) {
         res.status(406).json({ 'Error': 'Not Acceptable' });
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const originalExPost = getExPost(req.params.postId)
+        const originalExPost = modelFunctions.getExPost(req.params.postId)
             .then(originalExPost => {
                 originalExPost = originalExPost[0];
 
@@ -363,7 +225,7 @@ router.patch('/:postId', function (req, res) {
                     originalExPost.dateTimeLastEdit = dateTimeLastEdit;
                     editedExPost = originalExPost;
 
-                    patchExPost(req.params.postId, editedExPost)
+                    modelFunctions.patchExPost(req.params.postId, editedExPost)
                         .then(result => {
                             const key = result.key;
                             const data = result.data;
@@ -402,7 +264,7 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
         res.status(404).json({ 'Error': 'The specified eX Post and/or interaction does not exist' });
     } else {
         //TODO: verify that interactionId is a valid id. Right now, I can PUT any num on a post.
-        putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
+        modelFunctions.putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
             .then(result => {
                 if (result === -1) {
                     // TODO: the interaction id can only be used once?
@@ -417,7 +279,7 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
 
 // Delete an eX Post
 router.delete('/:postId', function (req, res) {
-    const exPost = getExPost(req.params.postId)
+    const exPost = modelFunctions.getExPost(req.params.postId)
         .then(exPost => {
             const data = exPost[0];
 
@@ -425,7 +287,7 @@ router.delete('/:postId', function (req, res) {
                 res.status(404).end();
             } else {
                 //TODO: need to delete associated interactions here
-                deleteExPost(req.params.postId)
+                modelFunctions.deleteExPost(req.params.postId)
                     .then(result => {
                         res.status(204).end();
                     })
