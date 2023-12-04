@@ -1,3 +1,5 @@
+// import * as Model from '../model/posts-model';
+const postExPost = require('../model/posts-model')
 const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
