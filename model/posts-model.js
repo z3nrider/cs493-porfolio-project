@@ -1,6 +1,7 @@
 const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
+const INTERACTION = "Interaction";
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
@@ -104,6 +105,7 @@ function putInteractWithExPost(postId, interactionId, body) {
 
             let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
             exPost[0].interactions.push(newInteraction);
+
             previousReposts = exPost[0].status.reposts;
             previousLikes = exPost[0].status.likes;
             previousViews = exPost[0].status.views;

@@ -16,7 +16,7 @@ router.post('/', function (req, res) {
     if (req.body.reposts === undefined ||
         req.body.likes === undefined ||
         req.body.views === undefined ||
-        req.body.exPostId === undefined) {
+        req.body.postId === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
     } else {
         modelFunctions.postInteraction(req.body.reposts, req.body.likes, req.body.views, req.body.postId)

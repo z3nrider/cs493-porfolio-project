@@ -201,7 +201,7 @@ router.patch('/:postId', function (req, res) {
                 } else if (originalExPost.verification === false) {
                     res.status(403).json({ 'Forbidden': 'Unverified users may not edit eX posts.' });
                 } else {
-                    let dateTimeLastEdit = getDateTime();
+                    let dateTimeLastEdit = modelFunctions.getDateTime();
                     let editedExPost;
                     // Pass in remaining properties to edited post
 
