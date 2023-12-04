@@ -5,7 +5,7 @@ const app = express();
 const router = express.Router();
 const login = express.Router();
 
-const ds = require('./datastore');
+const ds = require('./database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
