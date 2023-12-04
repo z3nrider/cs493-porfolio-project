@@ -1,7 +1,10 @@
 const express = require('express');
 const app = express();
 
+app.use('/exPosts-controller', require('./controller/exPosts-controller.js'));
+app.use('/exPosts-model', require('./model/exPosts-model.js'));
 app.use('/posts', require('./posts'));
+
 app.use('/interactions', require('./interactions'));
 app.use('/home', require('./home'));
 
