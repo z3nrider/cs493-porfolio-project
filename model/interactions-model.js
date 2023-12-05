@@ -1,6 +1,9 @@
+const e = require('express');
 const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const INTERACTION = "Interaction";
+const exPostsModelFunctions = require('../model/posts-model');
+
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
@@ -14,8 +17,7 @@ function getDateTime() {
 
 /* ------------- Begin interaction Model Functions ------------- */
 function postInteraction(reposts, likes, views, postId) {
-    var key = datastore.key(INTERACTION);
-    let dateTime = getDateTime();
+    let key = datastore.key(INTERACTION);
 
     const newInteraction = {
         "reposts": reposts,
@@ -32,7 +34,7 @@ function postInteraction(reposts, likes, views, postId) {
 
 function getInteractions(req) {
     var q = datastore.createQuery(INTERACTION).limit(3);
-    const results = {};
+    let results = {};
     let prev;
 
     if (Object.keys(req.query).includes("cursor")) {
@@ -99,40 +101,51 @@ function patchInteraction(postId, editedExPostProperties) {
         });
 }
 
-// TODO: I want to delete an interaction but keep the post.
-// make a new function called deleteInteractionPutPost() to handle this
-// const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-
-//     // const interactionKey = datastore.key([POST, parseInt(postId, 10)]);
-
-//     // Get eX Post to be deleted
-//     let exPost = getExPost(postId)
-//         .then(result => {
-//             // Iterate through associated interactions
-//             for (let i = 0; i < exPost.interactions.length; i++) {
-//                 // Decrement repost if reposted
-//                 if (exPost.interactions.repost === true) {
-//                     exPost.status.reposts -= 1;
-//                 }
-
-//                 // Decrement like if liked
-//                 if (exPost.interactions.like === true) {
-//                     exPost.status.likes -= 1;
-//                 }
-
-//                 // Views remain the same
-
-//                 // Delete interaction entity from Interactions array
-//                 modifyInteractionFunctions.deleteInteraction(exPost.interactions.interactionId);
-//             }
-
-//             return datastore.delete(exPostKey);
-//         });
-
 function deleteInteraction(interactionId) {
     const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-    return datastore.delete(key);
+
+    const interaction = getInteraction(interactionId)
+        .then(result => {
+
+            // Get eX Post to be deleted
+            let exPost = exPostsModelFunctions.getExPost(result[0].postId)
+                .then(result => {
+                    let exPostInteractionsArr = result[0].interactions;
+
+                    // Iterate through associated interactions
+                    for (let i = 0; i < exPostInteractionsArr.length; i++) {
+
+                        // Found associated interaction to be removed from eX Post
+                        if (exPostInteractionsArr[i].interactionId === interactionId) {
+                            // Decrement repost if reposted
+                            if (exPostInteractionsArr[i].repost === true) {
+                                result[0].status.reposts -= 1;
+                            }
+
+                            // Decrement like if liked
+                            if (exPostInteractionsArr[i].like === true) {
+                                result[0].status.likes -= 1;
+                            }
+                            // Views remain the same
+
+                            result[0].interactions.splice(i, 1); // remove associated interaction from post
+
+                            // Patch eX Post
+                            let postId = result[0].id;
+                            let editedExPostProperties = result[0];
+                            let updatedExPost = exPostsModelFunctions.patchExPost(postId, editedExPostProperties)
+                                .then(final => {
+                                    return datastore.save({ "key": key, "data": updatedExPost })
+                                        .then(() => {
+                                            return { key, data: updatedExPost }
+                                        });
+                                })
+                        }
+                    }
+                });
+        })
 }
+
 
 /* ------------- End Model Functions ------------- */
 

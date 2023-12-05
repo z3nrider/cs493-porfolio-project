@@ -2,7 +2,7 @@ const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
-const modifyInteractionFunctions = require('./interactions-model');
+
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
@@ -41,10 +41,6 @@ function postExPost(exPostContents) {
 function getExPosts(req) {
     let q = datastore.createQuery(POST).limit(3);
     let results = {};
-
-    // return datastore.runQuery(q).then((entities) => {
-    //     return entities[0].map(ds.fromDatastore);
-    // });
     let prev;
 
     if (Object.keys(req.query).includes("cursor")) {

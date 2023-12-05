@@ -4,7 +4,8 @@ const app = express();
 
 const router = express.Router();
 
-const modelFunctions = require('../model/interactions-model');
+const exPostsModelFunctions = require('../model/interactions-model');
+const interactionsModelFunctions = require('../model/interactions-model');
 
 const ds = require('../database/datastore');
 
@@ -19,7 +20,7 @@ router.post('/', function (req, res) {
         req.body.postId === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
     } else {
-        modelFunctions.postInteraction(req.body.reposts, req.body.likes, req.body.views, req.body.postId)
+        interactionsModelFunctions.postInteraction(req.body.reposts, req.body.likes, req.body.views, req.body.postId)
             .then(result => {
                 const key = result.key;
                 const data = result.data;
@@ -31,7 +32,7 @@ router.post('/', function (req, res) {
 });
 
 router.get('/', function (req, res) {
-    const interactions = modelFunctions.getInteractions(req)
+    const interactions = interactionsModelFunctions.getInteractions(req)
         .then((interactions) => {
             res.status(200).json(interactions);
         });
@@ -42,7 +43,7 @@ router.get('/:interactionId', function (req, res) {
     if (req.params.interactionId < 1000000000000000) {
         res.status(404).json({ 'Error': 'No interaction with this interactionId exists' });
     } else {
-        modelFunctions.getInteraction(req.params.interactionId)
+        interactionsModelFunctions.getInteraction(req.params.interactionId)
             .then(interaction => {
                 if (interaction[0] === undefined || interaction[0] === null) {
                     res.status(404).json({ 'Error': 'No interaction with this interactionId exists' });
@@ -57,18 +58,13 @@ router.get('/:interactionId', function (req, res) {
 });
 
 router.put('/:interactionId', function (req, res) {
-    modelFunctions.putInteraction(req.params.interactionId, req.body.name)
+    interactionsModelFunctions.putInteraction(req.params.interactionId, req.body.name)
         .then(res.status(200).end());
 });
 
 router.delete('/:interactionId', function (req, res) {
-    const interactionId = req.params.id;
-
-    if (interactionId < 1000000000000000) {
-        res.status(404).json({ 'Error': 'No interaction with this interactionId exists' });
-    } else {
-        modelFunctions.deleteInteraction(req.params.interactionId).then(res.status(204).end())
-    }
+    // const interactionId = req.params.interactionId;
+    interactionsModelFunctions.deleteInteraction(req.params.interactionId).then(res.status(204).end());
 });
 
 /* ------------- End Controller Functions ------------- */
