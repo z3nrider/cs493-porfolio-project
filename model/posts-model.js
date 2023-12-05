@@ -2,6 +2,7 @@ const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
+const modifyInteractionFunctions = require('./interactions-model');
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
@@ -30,17 +31,41 @@ function postExPost(exPostContents) {
         "status": { reposts: 0, likes: 0, views: 0 }  // Cumulative interaction events
     }
 
-    return datastore.save({ "key": key, "data": newExPost }).then(() => {
-        return { key, data: newExPost }
-    });
+    return datastore.save({ "key": key, "data": newExPost })
+        .then(() => {
+            return { key, data: newExPost }
+        });
 }
 
 // View all eX Posts
-function getExPosts() {
-    const q = datastore.createQuery(POST);
-    return datastore.runQuery(q).then((entities) => {
-        return entities[0].map(ds.fromDatastore);
-    });
+function getExPosts(req) {
+    let q = datastore.createQuery(POST).limit(3);
+    let results = {};
+
+    // return datastore.runQuery(q).then((entities) => {
+    //     return entities[0].map(ds.fromDatastore);
+    // });
+    let prev;
+
+    if (Object.keys(req.query).includes("cursor")) {
+        prev = req.protocol + "://" + req.get("host") + req.baseUrl + "?cursor=" + req.query.cursor;
+        q = q.start(req.query.cursor);
+    }
+
+    return datastore.runQuery(q)
+        .then((entities) => {
+            results.items = entities[0].map(ds.fromDatastore);
+
+            if (typeof prev !== 'undefined') {
+                results.previous = prev;
+            }
+
+            if (entities[1].moreResults !== ds.Datastore.NO_MORE_RESULTS) {
+                results.next = req.protocol + "://" + req.get("host") + req.baseUrl + "?cursor=" + entities[1].endCursor;
+            }
+
+            return results;
+        });
 }
 
 // View an eX post
@@ -70,11 +95,13 @@ function putExPost(postId, editedExPostProperties, originalExPostProperties) {
         "self": originalExPostProperties.self
     };
 
-    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
-        return { key, data: editedExPost }
-    });
+    return datastore.save({ "key": key, "data": editedExPost })
+        .then(() => {
+            return { key, data: editedExPost }
+        });
 }
 
+//TODO: double check that I'm modifying all these properties
 // Edit an eX Post
 function patchExPost(postId, editedExPostProperties) {
     const key = datastore.key([POST, parseInt(postId, 10)]);
@@ -90,9 +117,10 @@ function patchExPost(postId, editedExPostProperties) {
         "self": editedExPostProperties.self
     };
 
-    return datastore.save({ "key": key, "data": editedExPost }).then(() => {
-        return { key, data: editedExPost }
-    });
+    return datastore.save({ "key": key, "data": editedExPost })
+        .then(() => {
+            return { key, data: editedExPost }
+        });
 }
 
 // Interact with an eX Post
@@ -103,7 +131,12 @@ function putInteractWithExPost(postId, interactionId, body) {
     return datastore.get(exPostKey)
         .then((exPost) => {
 
-            let newInteraction = { interactionId: interactionId, repost: body.repost, like: body.like, view: body.view }
+            let newInteraction = {
+                interactionId: interactionId,
+                repost: body.repost,
+                like: body.like,
+                view: body.view
+            }
             exPost[0].interactions.push(newInteraction);
 
             previousReposts = exPost[0].status.reposts;
@@ -130,15 +163,25 @@ function putInteractWithExPost(postId, interactionId, body) {
         })
 }
 
-// Delete an associated interaction
-function deleteInteraction(interactionId) {
-    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-    return datastore.delete(key);
-}
-
 // Delete an eX Post
 function deleteExPost(postId) {
-    const key = datastore.key([POST, parseInt(postId, 10)]);
+    const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
+
+    // Get eX Post to be deleted
+    let exPost = getExPost(postId)
+        .then(result => {
+            // Iterate through associated interactions
+            for (let i = 0; i < exPost.interactions.length; i++) {
+                // Delete each associated interaction entiry
+                deleteInteraction(exPost.interactions.interactionId);
+            }
+
+            return datastore.delete(exPostKey);
+        });
+}
+
+function deleteInteraction(interactionId) {
+    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
     return datastore.delete(key);
 }
 
@@ -152,6 +195,5 @@ module.exports = {
     putExPost,
     patchExPost,
     putInteractWithExPost,
-    deleteInteraction,
     deleteExPost
 }
