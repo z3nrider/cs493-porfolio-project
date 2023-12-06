@@ -15,39 +15,55 @@ router.use(bodyParser.json());
 /* ------------- Begin Controller Functions ------------- */
 
 router.post('/', function (req, res) {
-    if (req.body.repost === undefined ||
+    if (req.get('content-type') !== 'application/json') {
+        res.status(415).end();
+    } else if (req.body.repost === undefined ||
         req.body.like === undefined ||
         req.body.view === undefined ||
         req.body.postId === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
     } else {
-        interactionsModelFunctions.postInteraction(req.body.repost, req.body.like, req.body.view, req.body.postId)
+        let repost = req.body.repost;
+        let like = req.body.like;
+        let view = req.body.view;
+        let postId = req.body.postId;
+
+        // Create the interaction
+        interactionsModelFunctions.postInteraction(repost, like, view, postId)
             .then(result => {
                 const key = result.key;
                 const data = result.data;
                 const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-                const newInteraction = { "id": key.id, "repost": data.repost, "like": data.like, "view": data.view, "postId": data.postId, "self": selfLink };
+                const newInteraction = {
+                    "id": key.id,
+                    "repost": data.repost,
+                    "like": data.like,
+                    "view": data.view,
+                    "postId": data.postId,
+                    "self": selfLink
+                };
 
+                // Update the associated eX Post interaction
                 exPostsModelFunctions.putInteractWithExPost(data.postId, key.id, newInteraction)
-                    .then(result2 => {
-                        if (result2 === -1) {
-                            // TODO: the interaction id can only be used once?
-                            res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
-                        } else {
-                            //TODO: is 204 right status to send?
-                            const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-                            const newInteraction = { "reposts": req.body.reposts, "likes": req.body.likes, "views": req.body.views, "postId": req.body.postId, "self": selfLink };
+                    .then(result => {
+                        const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                        const newInteraction = {
+                            "repost": req.body.repost,
+                            "like": req.body.like,
+                            "view": req.body.view,
+                            "postId": req.body.postId,
+                            "self": selfLink
+                        };
 
-                            res.status(201).send(newInteraction);
-                        }
-                    })
-                // res.status(201).send(newInteraction);
+                        res.status(201).send(newInteraction);
+                    }
+                    )
             });
     }
 });
 
 router.get('/', function (req, res) {
-    const interactions = interactionsModelFunctions.getInteractions(req)
+    interactionsModelFunctions.getInteractions(req)
         .then((interactions) => {
             res.status(200).json(interactions);
         });
@@ -55,22 +71,35 @@ router.get('/', function (req, res) {
 
 // get a new interaction
 router.get('/:interactionId', function (req, res) {
-    if (req.params.interactionId < 1000000000000000) {
-        res.status(404).json({ 'Error': 'No interaction with this interactionId exists' });
-    } else {
-        interactionsModelFunctions.getInteraction(req.params.interactionId)
-            .then(interaction => {
-                if (interaction[0] === undefined || interaction[0] === null) {
-                    res.status(404).json({ 'Error': 'No interaction with this interactionId exists' });
-                } else {
+    interactionsModelFunctions.getInteraction(req.params.interactionId)
+        .then(interaction => {
+            if (interaction[0] === undefined || interaction[0] === null) {
+                res.status(404).json({ 'Error': 'No interaction with this id exists' });
+            } else {
+                const accepts = req.accepts(['application/json', 'text/html']);
+
+                if (!accepts) {
+                    res.status(406).send('Not Acceptable');
+                } else if (accepts === 'application/json') {
                     const data = interaction[0];
                     const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
-                    const newInteraction = { "id": data.id, "volume": data.volume, "item": data.item, "creationDate": data.creationDate, "carrier": data.carrier, "self": selfLink };
-                    res.status(200).send(newInteraction);
-                }
-            });
-    }
-});
+
+                    const newInteraction = {
+                        "repost": data.repost,
+                        "like": data.like,
+                        "view": data.view,
+                        "postId": data.postId,
+                        "self": selfLink
+                    };
+                    res.status(200).json(newInteraction);
+                } else if (accepts === 'text/html') {
+                    const interactionHTML = JSON.stringify(interaction[0]);
+                    res.status(200).send(`<p>${interactionHTML}</p>`);
+                } else { res.status(500).send('Content type got messed up!'); }
+            }
+        });
+}
+);
 
 router.put('/:interactionId', function (req, res) {
     interactionsModelFunctions.putInteraction(req.params.interactionId, req.body.name)

@@ -39,7 +39,7 @@ function postExPost(exPostContents) {
 
 // View all eX Posts
 function getExPosts(req) {
-    let q = datastore.createQuery(POST).limit(3);
+    let q = datastore.createQuery(POST).limit(5);
     let results = {};
     let prev;
 

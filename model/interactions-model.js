@@ -32,7 +32,7 @@ function postInteraction(repost, like, view, postId) {
 }
 
 function getInteractions(req) {
-    var q = datastore.createQuery(INTERACTION).limit(3);
+    var q = datastore.createQuery(INTERACTION).limit(5);
     let results = {};
     let prev;
 

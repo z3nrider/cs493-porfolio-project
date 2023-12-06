@@ -64,7 +64,7 @@ router.post('/', function (req, res) {
 
 // Get all eX Posts
 router.get('/', function (req, res) {
-    const exPosts = exPostsModelFunctions.getExPosts(req)
+    exPostsModelFunctions.getExPosts(req)
         .then((exPosts) => {
             let exPostsWithoutInteractions = []
             let exPostsArr = exPosts.items;
@@ -88,36 +88,38 @@ router.get('/', function (req, res) {
 
 // Get an eX Post
 router.get('/:postId', function (req, res) {
-    const exPost = exPostsModelFunctions.getExPost(req.params.postId)
+    exPostsModelFunctions.getExPost(req.params.postId)
         .then(exPost => {
-            const accepts = req.accepts(['application/json', 'text/html']);
+            if (exPost[0] === undefined || exPost[0] === null) {
+                res.status(404).json({ 'Error': 'No post with this id exists' });
+            } else {
+                const accepts = req.accepts(['application/json', 'text/html']);
 
-            if (!accepts) {
-                res.status(406).send('Not Acceptable');
-            } else if (accepts === 'application/json') {
-                const data = exPost[0];
-                const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
+                if (!accepts) {
+                    res.status(406).send('Not Acceptable');
+                } else if (accepts === 'application/json') {
+                    const data = exPost[0];
+                    const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
 
-                const exPost = {
-                    "id": data.id,
-                    "content": data.content,  // Content of the eX post
-                    "hashtag": data.hashtag,
-                    "verification": data.verification,  // A boolean that shows user verification status
-                    "dateTimeCreated": data.dateTimeCreated,
-                    "dateTimeLastEdit": data.dateTimeLastEdit,
-                    "interactions": data.interactions,  // An array of interactions that contain interaction events
-                    "status": data.status,  // Cumulative interaction events
-                    "self": selfLink
-                }
-                res.status(200).json(exPost);
-            } else if (accepts === 'text/html') {
-                const exPostHTML = JSON.stringify(exPost[0]);
-                res.status(200).send(`<p>${exPostHTML}</p>`);
-            } else { res.status(500).send('Content type got messed up!'); }
+                    const exPost = {
+                        "id": data.id,
+                        "content": data.content,  // Content of the eX post
+                        "hashtag": data.hashtag,
+                        "verification": data.verification,  // A boolean that shows user verification status
+                        "dateTimeCreated": data.dateTimeCreated,
+                        "dateTimeLastEdit": data.dateTimeLastEdit,
+                        "interactions": data.interactions,  // An array of interactions that contain interaction events
+                        "status": data.status,  // Cumulative interaction events
+                        "self": selfLink
+                    }
+                    res.status(200).json(exPost);
+                } else if (accepts === 'text/html') {
+                    const exPostHTML = JSON.stringify(exPost[0]);
+                    res.status(200).send(`<p>${exPostHTML}</p>`);
+                } else { res.status(500).send('Content type got messed up!'); }
+            }
 
-            // if (exPost[0] === undefined || exPost[0] === null) {
-            //     res.status(404).json({ 'Error': 'No post with this id exists' });
-            // }
+
         });
 });
 
@@ -134,7 +136,7 @@ router.put('/:postId', function (req, res) {
     } else if (!accepts) {
         res.status(406).json({ 'Error': 'Not Acceptable' });
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const originalExPost = exPostsModelFunctions.getExPost(req.params.postId)
+        exPostsModelFunctions.getExPost(req.params.postId)
             .then(originalExPost => {
                 originalExPost = originalExPost[0];
 
