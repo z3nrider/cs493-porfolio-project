@@ -264,22 +264,42 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
     const postId = req.params.postId;
     const interactionId = req.params.interactionId;
 
-    if (postId < 1000000000000000 || interactionId < 1000000000000000) {
-        res.status(404).json({ 'Error': 'The specified eX Post and/or interaction does not exist' });
-    } else {
-        //TODO: verify that interactionId is a valid id. Right now, I can PUT any num on a post.
-        exPostsModelFunctions.putInteractWithExPost(req.params.postId, req.params.interactionId, req.body)
-            .then(result => {
-                if (result === -1) {
-                    // TODO: the interaction id can only be used once?
-                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
-                } else {
-                    //TODO: is 204 right status to send?
-                    res.status(204).end();
+    // Get original eX Post to be updated
+    exPostsModelFunctions.getExPost(postId)
+        .then(originalExPost => {
+            originalExPost = originalExPost[0];
+
+            if (originalExPost === undefined) {
+                res.status(404).end();
+            } else {
+                // Iterate over interactions to find matching interaction
+                for (let i = 0; i < originalExPost.interactions.length; i++) {
+                    if (originalExPost.interactions[i].interactionId === req.params.interactionId) {
+                        // Update associated interaction properties
+                        let updatedInteraction = {
+                            interactionId: req.params.interactionId,
+                            repost: req.body.repost,
+                            like: req.body.like,
+                            view: req.body.view
+                        }
+                        exPostsModelFunctions.putExPostInteraction(req.params.postId, updatedInteraction, originalExPost)
+                            .then(result => {
+
+                                if (result === -1) {
+                                    // TODO: the interaction id can only be used once?
+                                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
+                                } else {
+                                    //TODO: is 204 right status to send?
+                                    res.status(204).end();
+                                }
+                            })
+                    }
                 }
-            })
-    }
-});
+            }
+        }
+        )
+}
+);
 
 // Delete an eX Post
 router.delete('/:postId', function (req, res) {

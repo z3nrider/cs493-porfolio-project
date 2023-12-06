@@ -86,10 +86,53 @@ function putExPost(postId, editedExPostProperties, originalExPostProperties) {
         "verification": editedExPostProperties.verification,
         "dateTimeCreated": originalExPostProperties.dateTimeCreated,
         "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
-        "interactions": editedExPostProperties.interactions,
+        "interactions": originalExPostProperties.interactions,
         "status": originalExPostProperties.status,
         "self": originalExPostProperties.self
     };
+
+    return datastore.save({ "key": key, "data": editedExPost })
+        .then(() => {
+            return { key, data: editedExPost }
+        });
+}
+
+// Edit an eX Post's associated Interaction
+function putExPostInteraction(postId, updatedInteraction, originalExPostProperties) {
+    const key = datastore.key([POST, parseInt(postId, 10)]);
+
+    for (let i = 0; i < originalExPostProperties.interactions.length; i++) {
+        if (originalExPostProperties.interactions[i].interactionId === updatedInteraction.interactionId) {
+            // Update repost count
+            if (originalExPostProperties.interactions[i].repost === true) {
+                if (updatedInteraction.repost === false) {
+                    // Decrement reposts count
+                    originalExPostProperties.status.reposts -= 1;
+                }
+            } else {
+                if (updatedInteraction.repost === true) {
+                    // Increment reposts count
+                    originalExPostProperties.status.reposts += 1;
+                }
+            }
+
+            // Update like count
+            if (originalExPostProperties.interactions[i].like === true) {
+                if (updatedInteraction.like === false) {
+                    // Decrement reposts count
+                    originalExPostProperties.status.likes -= 1;
+                }
+            } else {
+                if (updatedInteraction.like === true) {
+                    // Increment reposts count
+                    originalExPostProperties.status.likes += 1;
+                }
+            }
+            break;
+        }
+    }
+    let editedExPost = originalExPostProperties;
+
 
     return datastore.save({ "key": key, "data": editedExPost })
         .then(() => {
@@ -189,6 +232,7 @@ module.exports = {
     getExPosts,
     getExPost,
     putExPost,
+    putExPostInteraction,
     patchExPost,
     putInteractWithExPost,
     deleteExPost

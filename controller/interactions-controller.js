@@ -48,6 +48,7 @@ router.post('/', function (req, res) {
                     .then(result => {
                         const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
                         const newInteraction = {
+                            "id": key.id,
                             "repost": req.body.repost,
                             "like": req.body.like,
                             "view": req.body.view,
