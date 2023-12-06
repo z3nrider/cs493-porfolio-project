@@ -109,6 +109,7 @@ router.put('/:interactionId', function (req, res) {
 
 router.delete('/:interactionId', function (req, res) {
     // const interactionId = req.params.interactionId;
+
     interactionsModelFunctions.deleteInteraction(req.params.interactionId).then(res.status(204).end());
 });
 

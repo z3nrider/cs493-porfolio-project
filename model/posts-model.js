@@ -3,6 +3,14 @@ const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
 
+function fromDatastore(item) {
+    try {
+        item.id = item[Datastore.KEY].id;
+        return item;
+    } catch {
+        return -1;
+    }
+}
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
 function getDateTime() {
@@ -15,6 +23,28 @@ function getDateTime() {
 }
 
 /* ------------- Begin Post Model Functions ------------- */
+
+function getOwnerExPosts(owner) {
+    const q = datastore.createQuery(BOAT);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(fromDatastore).filter(item => item.owner === owner);
+    });
+}
+
+function getExPostsUnprotected() {
+    const q = datastore.createQuery(BOAT);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(fromDatastore);
+    });
+}
+
+function getOwnerExPost(postId) {
+    const key = datastore.key([BOAT, parseInt(postId, 10)]);
+    return datastore.get(key).then((data) => {
+        return fromDatastore(data[0]);
+    }
+    );
+}
 
 // Create an eX Post
 function postExPost(exPostContents) {
@@ -107,7 +137,11 @@ function putExPostInteraction(postId, updatedInteraction, originalExPostProperti
             if (originalExPostProperties.interactions[i].repost === true) {
                 if (updatedInteraction.repost === false) {
                     // Decrement reposts count
-                    originalExPostProperties.status.reposts -= 1;
+                    let repostsCount = originalExPostProperties.status.reposts;
+                    // Reposts cannot go below 0
+                    if (repostsCount > 0) {
+                        originalExPostProperties.status.reposts -= 1;
+                    }
                 }
             } else {
                 if (updatedInteraction.repost === true) {
@@ -120,7 +154,11 @@ function putExPostInteraction(postId, updatedInteraction, originalExPostProperti
             if (originalExPostProperties.interactions[i].like === true) {
                 if (updatedInteraction.like === false) {
                     // Decrement reposts count
-                    originalExPostProperties.status.likes -= 1;
+                    let likesCount = originalExPostProperties.status.likes;
+                    // Reposts cannot go below 0
+                    if (likesCount > 0) {
+                        originalExPostProperties.status.likes -= 1;
+                    }
                 }
             } else {
                 if (updatedInteraction.like === true) {
@@ -206,27 +244,15 @@ function putInteractWithExPost(postId, interactionId, body) {
 function deleteExPost(postId) {
     const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
 
-    // Get eX Post to be deleted
-    let exPost = getExPost(postId)
-        .then(result => {
-            // Iterate through associated interactions
-            for (let i = 0; i < exPost.interactions.length; i++) {
-                // Delete each associated interaction entiry
-                deleteInteraction(exPost.interactions.interactionId);
-            }
-
-            return datastore.delete(exPostKey);
-        });
-}
-
-function deleteInteraction(interactionId) {
-    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
-    return datastore.delete(key);
+    return datastore.delete(exPostKey);
 }
 
 /* ------------- End Model Functions ------------- */
 
 module.exports = {
+    getOwnerExPosts,
+    getExPostsUnprotected,
+    getOwnerExPost,
     getDateTime,
     postExPost,
     getExPosts,

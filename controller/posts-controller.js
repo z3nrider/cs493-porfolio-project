@@ -4,11 +4,17 @@ const app = express();
 
 const router = express.Router();
 const login = express.Router();
+const users = express.Router();
 
 const exPostsModelFunctions = require('../model/posts-model');
 const interactionsModelFunctions = require('../model/interactions-model');
-
+const jwt = require('express-jwt');
+const jwksRsa = require('jwks-rsa');
 const ds = require('../database/datastore');
+
+const DOMAIN = 'dev-gblxtkrkmbzldfsv.us.auth0.com';
+const { auth } = require('express-openid-connect');
+
 
 const json2html = require('node-json2html');
 const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
@@ -16,13 +22,53 @@ const MAX_POST_LENGTH = 140;
 
 router.use(bodyParser.json());
 
+const checkJwt = jwt({
+    secret: jwksRsa.expressJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: `https://${DOMAIN}/.well-known/jwks.json`
+    }),
+
+    // Validate the audience and the issuer.
+    issuer: `https://${DOMAIN}/`,
+    algorithms: ['RS256']
+});
+
 /* ------------- Begin Controller Functions ------------- */
 
-login.get('/', function (req, res) {
-    res.send('youre gonna login some day');
+
+app.get('/', function (req, res) {
+    res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
+});
+
+users.get('/:userId/posts', checkJwt, function (req, res) {
+    let exPostsArr = [];
+
+    exPostsModelFunctions.getOwnerExPosts(req.params.userId)
+        .then((posts) => {
+            // Iterate over array of posts for specified user
+            for (let i = 0; i < posts.length; i++) {
+                // Boat is public if true
+                if (posts[i].public === true) {
+                    exPostsArr.push(posts[i]);
+                }
+            }
+
+            const accepts = req.accepts(['application/json', 'text/html']);
+            if (posts.owner && posts.owner !== req.user.sub) {
+                res.status(403).send('Forbidden');
+            } else if (!accepts) {
+                res.status(406).send('Not Acceptable');
+            } else if (accepts === 'application/json') {
+                res.status(200).json(exPostsArr);
+            } else if (accepts === 'text/html') {
+                res.status(200).send(json2html(exPostsArr).slice(1, -1));
+            } else { res.status(500).send('Content type got messed up!'); }
+        });
 });
 // Create an eX Post
-router.post('/', function (req, res) {
+router.post('/', checkJwt, function (req, res) {
     if (req.get('content-type') !== 'application/json') {
         res.status(415).end();
     } else if (req.body.content === undefined ||
@@ -63,7 +109,7 @@ router.post('/', function (req, res) {
 });
 
 // Get all eX Posts
-router.get('/', function (req, res) {
+router.get('/', checkJwt, function (req, res) {
     exPostsModelFunctions.getExPosts(req)
         .then((exPosts) => {
             let exPostsWithoutInteractions = []
@@ -87,7 +133,7 @@ router.get('/', function (req, res) {
 });
 
 // Get an eX Post
-router.get('/:postId', function (req, res) {
+router.get('/:postId', checkJwt, function (req, res) {
     exPostsModelFunctions.getExPost(req.params.postId)
         .then(exPost => {
             if (exPost[0] === undefined || exPost[0] === null) {
@@ -124,7 +170,7 @@ router.get('/:postId', function (req, res) {
 });
 
 // Edit an eX post
-router.put('/:postId', function (req, res) {
+router.put('/:postId', checkJwt, function (req, res) {
     const accepts = req.accepts(['application/json', 'text/html']);
 
     if (req.body.content === undefined ||
@@ -184,7 +230,7 @@ router.put('/:postId', function (req, res) {
 });
 
 // Edit an eX post
-router.patch('/:postId', function (req, res) {
+router.patch('/:postId', checkJwt, function (req, res) {
     const accepts = req.accepts(['application/json', 'text/html']);
     let contentLength;
 
@@ -259,7 +305,7 @@ router.patch('/:postId', function (req, res) {
 });
 
 // Edit an eX post's interactions (unlike or unrepost)
-router.put('/:postId/interactions/:interactionId', function (req, res) {
+router.put('/:postId/interactions/:interactionId', checkJwt, function (req, res) {
     // validate eX post id first
     const postId = req.params.postId;
     const interactionId = req.params.interactionId;
@@ -285,13 +331,12 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
                         exPostsModelFunctions.putExPostInteraction(req.params.postId, updatedInteraction, originalExPost)
                             .then(result => {
 
-                                if (result === -1) {
-                                    // TODO: the interaction id can only be used once?
-                                    res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
-                                } else {
-                                    //TODO: is 204 right status to send?
-                                    res.status(204).end();
-                                }
+                                // Update associated interaction's properties
+                                interactionsModelFunctions.putInteraction(req.params.interactionId, req.body)
+                                    .then(result => {
+                                        //TODO: is 204 right status to send?
+                                        res.status(204).end();
+                                    })
                             })
                     }
                 }
@@ -302,21 +347,8 @@ router.put('/:postId/interactions/:interactionId', function (req, res) {
 );
 
 // Delete an eX Post
-router.delete('/:postId', function (req, res) {
-    const exPost = exPostsModelFunctions.getExPost(req.params.postId)
-        .then(exPost => {
-            const data = exPost[0];
-
-            if (data === undefined) {
-                res.status(404).end();
-            } else {
-                //TODO: need to delete associated interactions here
-                interactionsModelFunctions.deleteInteraction(req.params.postId)
-                    .then(result => {
-                        res.status(204).end();
-                    })
-            }
-        })
+router.delete('/:postId', checkJwt, function (req, res) {
+    exPostsModelFunctions.deleteExPost(req.params.postId).then(res.status(204).end());
 });
 
 // Delete all eX Posts (attempt)
@@ -340,4 +372,6 @@ router.patch('/', function (req, res) {
 /* ------------- End Controller Functions ------------- */
 
 app.use('/login', login);
+app.use('/users', users);
+
 module.exports = router;

@@ -68,14 +68,13 @@ function getInteraction(interactionId) {
     });
 }
 
-function putInteraction(interactionId, editedInteractionProperties, originalInteractionProperties) {
+function putInteraction(interactionId, editedInteractionProperties) {
     const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
 
     const editedInteraction = {
         "repost": editedInteractionProperties.repost,
         "like": editedInteractionProperties.like,
-        "view": originalInteractionProperties.view, // Cannot modify views
-        "self": originalInteractionProperties.self
+        "view": editedInteractionProperties.view, // Cannot modify views
     };
 
     return datastore.save({ "key": key, "data": editedInteraction })
@@ -102,47 +101,47 @@ function patchInteraction(postId, editedExPostProperties) {
 
 function deleteInteraction(interactionId) {
     const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
+    return datastore.delete(interactionId);
+    // const interaction = getInteraction(interactionId)
+    //     .then(result => {
 
-    const interaction = getInteraction(interactionId)
-        .then(result => {
+    //         // Get eX Post to be deleted
+    //         let exPost = exPostsModelFunctions.getExPost(result[0].postId)
+    //             .then(result => {
+    //                 let exPostInteractionsArr = result[0].interactions;
 
-            // Get eX Post to be deleted
-            let exPost = exPostsModelFunctions.getExPost(result[0].postId)
-                .then(result => {
-                    let exPostInteractionsArr = result[0].interactions;
+    //                 // Iterate through associated interactions
+    //                 for (let i = 0; i < exPostInteractionsArr.length; i++) {
 
-                    // Iterate through associated interactions
-                    for (let i = 0; i < exPostInteractionsArr.length; i++) {
+    //                     // Found associated interaction to be removed from eX Post
+    //                     if (exPostInteractionsArr[i].interactionId === interactionId) {
+    //                         // Decrement repost if reposted
+    //                         if (exPostInteractionsArr[i].repost === true) {
+    //                             result[0].status.reposts -= 1;
+    //                         }
 
-                        // Found associated interaction to be removed from eX Post
-                        if (exPostInteractionsArr[i].interactionId === interactionId) {
-                            // Decrement repost if reposted
-                            if (exPostInteractionsArr[i].repost === true) {
-                                result[0].status.reposts -= 1;
-                            }
+    //                         // Decrement like if liked
+    //                         if (exPostInteractionsArr[i].like === true) {
+    //                             result[0].status.likes -= 1;
+    //                         }
+    //                         // Views remain the same
 
-                            // Decrement like if liked
-                            if (exPostInteractionsArr[i].like === true) {
-                                result[0].status.likes -= 1;
-                            }
-                            // Views remain the same
+    //                         result[0].interactions.splice(i, 1); // remove associated interaction from post
 
-                            result[0].interactions.splice(i, 1); // remove associated interaction from post
-
-                            // Patch eX Post
-                            let postId = result[0].id;
-                            let editedExPostProperties = result[0];
-                            let updatedExPost = exPostsModelFunctions.patchExPost(postId, editedExPostProperties)
-                                .then(final => {
-                                    return datastore.save({ "key": key, "data": updatedExPost })
-                                        .then(() => {
-                                            return { key, data: updatedExPost }
-                                        });
-                                })
-                        }
-                    }
-                });
-        })
+    //                         // Patch eX Post
+    //                         let postId = result[0].id;
+    //                         let editedExPostProperties = result[0];
+    //                         let updatedExPost = exPostsModelFunctions.patchExPost(postId, editedExPostProperties)
+    //                             .then(final => {
+    //                                 return datastore.save({ "key": key, "data": updatedExPost })
+    //                                     .then(() => {
+    //                                         return { key, data: updatedExPost }
+    //                                     });
+    //                             })
+    //                     }
+    //                 }
+    //             });
+    //     })
 }
 
 
