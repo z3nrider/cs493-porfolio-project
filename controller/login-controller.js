@@ -1,18 +1,15 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const request = require('request');
-
+const path = require('path');
 const login = express.Router();
 const { auth } = require('express-openid-connect');
-const jwt = require('express-jwt');
-const jwksRsa = require('jwks-rsa');
 
 const CLIENT_ID = 'CTnVpRETT7mPYgPOdZaaanVGt20dHnKl';
 const CLIENT_SECRET = '48lZkwEYbiAjOTgbPG6DYserEeA5z-hV4uanysS4PZdcE9tnMSOBjrqSLP6GuoWD';
 const DOMAIN = 'dev-gblxtkrkmbzldfsv.us.auth0.com';
 
 login.use(bodyParser.json());
-
 
 // A function that generates state
 // From Stack Overflow:
@@ -44,7 +41,14 @@ login.use(auth(config));
 
 // req.isAuthenticated is provided from the auth router
 login.get('/', (req, res) => {
-    res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
+    // res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
+    if (req.oidc.isAuthenticated()) {
+        let user = ({ "user": req.oidc.user, "jwt": req.oidc.idToken });
+        res.send(user);
+    } else {
+        const filePath = path.resolve(__dirname, '../view/index.html');
+        res.sendFile(filePath);
+    }
 });
 
 login.post('/', function (req, res) {
