@@ -86,7 +86,7 @@ function putExPost(postId, editedExPostProperties, originalExPostProperties) {
         "verification": editedExPostProperties.verification,
         "dateTimeCreated": originalExPostProperties.dateTimeCreated,
         "dateTimeLastEdit": editedExPostProperties.dateTimeLastEdit,
-        "interactions": originalExPostProperties.interactions,
+        "interactions": editedExPostProperties.interactions,
         "status": originalExPostProperties.status,
         "self": originalExPostProperties.self
     };

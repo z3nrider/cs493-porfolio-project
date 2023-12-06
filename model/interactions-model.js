@@ -1,4 +1,3 @@
-const e = require('express');
 const ds = require('../database/datastore');
 const datastore = ds.datastore;
 const INTERACTION = "Interaction";
@@ -16,13 +15,13 @@ function getDateTime() {
 }
 
 /* ------------- Begin interaction Model Functions ------------- */
-function postInteraction(reposts, likes, views, postId) {
+function postInteraction(repost, like, view, postId) {
     let key = datastore.key(INTERACTION);
 
     const newInteraction = {
-        "reposts": reposts,
-        "likes": likes,
-        "views": views,
+        "repost": repost,
+        "like": like,
+        "view": view,
         "postId": postId
     };
 

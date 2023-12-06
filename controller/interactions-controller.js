@@ -4,29 +4,44 @@ const app = express();
 
 const router = express.Router();
 
-const exPostsModelFunctions = require('../model/interactions-model');
+const exPostsModelFunctions = require('../model/posts-model');
 const interactionsModelFunctions = require('../model/interactions-model');
 
 const ds = require('../database/datastore');
+const datastore = ds.datastore;
 
 router.use(bodyParser.json());
 
 /* ------------- Begin Controller Functions ------------- */
 
 router.post('/', function (req, res) {
-    if (req.body.reposts === undefined ||
-        req.body.likes === undefined ||
-        req.body.views === undefined ||
+    if (req.body.repost === undefined ||
+        req.body.like === undefined ||
+        req.body.view === undefined ||
         req.body.postId === undefined) {
         res.status(400).json({ 'Error': 'The request object is missing at least one of the required attributes' });
     } else {
-        interactionsModelFunctions.postInteraction(req.body.reposts, req.body.likes, req.body.views, req.body.postId)
+        interactionsModelFunctions.postInteraction(req.body.repost, req.body.like, req.body.view, req.body.postId)
             .then(result => {
                 const key = result.key;
                 const data = result.data;
                 const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
-                const newInteraction = { "id": key.id, "reposts": data.reposts, "likes": data.likes, "views": data.views, "postId": data.postId, "self": selfLink };
-                res.status(201).send(newInteraction);
+                const newInteraction = { "id": key.id, "repost": data.repost, "like": data.like, "view": data.view, "postId": data.postId, "self": selfLink };
+
+                exPostsModelFunctions.putInteractWithExPost(data.postId, key.id, newInteraction)
+                    .then(result2 => {
+                        if (result2 === -1) {
+                            // TODO: the interaction id can only be used once?
+                            res.status(403).json({ 'Error': 'The interaction is already loaded on another eX Post' });
+                        } else {
+                            //TODO: is 204 right status to send?
+                            const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                            const newInteraction = { "reposts": req.body.reposts, "likes": req.body.likes, "views": req.body.views, "postId": req.body.postId, "self": selfLink };
+
+                            res.status(201).send(newInteraction);
+                        }
+                    })
+                // res.status(201).send(newInteraction);
             });
     }
 });
