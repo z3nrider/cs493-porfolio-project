@@ -37,7 +37,7 @@ const checkJwt = jwt({
 
 /* ------------- Begin Controller Functions ------------- */
 
-// users.get('/:userId/posts', checkJwt, function (req, res) {
+// router.get(':userId', checkJwt, function (req, res) {
 //     let exPostsArr = [];
 
 //     exPostsModelFunctions.getOwnerExPosts(req.params.userId)
@@ -105,28 +105,28 @@ router.post('/', checkJwt, function (req, res) {
 });
 
 // Get all eX Posts
-router.get('/', checkJwt, function (req, res) {
-    exPostsModelFunctions.getExPosts(req)
-        .then((exPosts) => {
-            let exPostsWithoutInteractions = []
-            let exPostsArr = exPosts.items;
+// router.get('/', function (req, res) {
+//     exPostsModelFunctions.getExPosts(req)
+//         .then((exPosts) => {
+//             let exPostsWithoutInteractions = []
+//             let exPostsArr = exPosts.items;
 
-            // Omit certain properties when requesting all eX Posts
-            for (let i = 0; i < exPostsArr.length; i++) {
-                let currentExPost = {
-                    id: exPostsArr[i].id,
-                    content: exPostsArr[i].content,
-                    hashtag: exPostsArr[i].hashtag,
-                    status: exPostsArr[i].status,
-                    self: exPostsArr[i].self
-                };
-                exPostsWithoutInteractions.push(currentExPost);
-            }
-            // Append next link to array
-            exPostsWithoutInteractions.push(exPosts.next);
-            res.status(200).json(exPostsWithoutInteractions);
-        });
-});
+//             // Omit certain properties when requesting all eX Posts
+//             for (let i = 0; i < exPostsArr.length; i++) {
+//                 let currentExPost = {
+//                     id: exPostsArr[i].id,
+//                     content: exPostsArr[i].content,
+//                     hashtag: exPostsArr[i].hashtag,
+//                     status: exPostsArr[i].status,
+//                     self: exPostsArr[i].self
+//                 };
+//                 exPostsWithoutInteractions.push(currentExPost);
+//             }
+//             // Append next link to array
+//             exPostsWithoutInteractions.push(exPosts.next);
+//             res.status(200).json(exPostsWithoutInteractions);
+//         });
+// });
 
 // Get all unprotected eX Posts
 router.get('/unprotected', function (req, res) {
@@ -223,10 +223,10 @@ router.put('/:postId', checkJwt, function (req, res) {
 
                             // Send back the updated post as json or html
                             if (accepts === 'application/json') {
-                                res.status(303).set("Location", selfLink).send(editedExPost);
+                                res.status(200).set("Location", selfLink).send(editedExPost);
                             } else {
                                 let htmlUpdateExPost = json2html.render(editedExPost, template);
-                                res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
+                                res.status(200).set("Location", selfLink).send(htmlUpdateExPost);
                             }
                         })
                 }
@@ -298,10 +298,10 @@ router.patch('/:postId', checkJwt, function (req, res) {
 
                             // Send back the updated post as json or html
                             if (accepts === 'application/json') {
-                                res.status(303).set("Location", selfLink).send(editedExPost);
+                                res.status(200).set("Location", selfLink).send(editedExPost);
                             } else {
                                 let htmlUpdateExPost = json2html.render(editedExPost, template);
-                                res.status(303).set("Location", selfLink).send(htmlUpdateExPost);
+                                res.status(200).set("Location", selfLink).send(htmlUpdateExPost);
                             }
                         })
                 }
@@ -340,7 +340,7 @@ router.put('/:postId/interactions/:interactionId', checkJwt, function (req, res)
                                 interactionsModelFunctions.putInteraction(req.params.interactionId, req.body)
                                     .then(result => {
                                         //TODO: is 204 right status to send?
-                                        res.status(204).end();
+                                        res.status(200).end();
                                     })
                             })
                     }

@@ -4,7 +4,7 @@ const USER = "User";
 
 function fromDatastore(item) {
     try {
-        item.id = item[Datastore.KEY].id;
+        item.id = item[datastore.KEY].id;
         return item;
     } catch {
         return -1;
@@ -17,6 +17,14 @@ function getUser(user) {
     const q = datastore.createQuery(USER);
     return datastore.runQuery(q).then((entities) => {
         return entities[0].map(fromDatastore).filter(item => item.user === user);
+    });
+}
+
+// View all users unprotected
+function getUsersUnprotected(req) {
+    const q = datastore.createQuery(USER);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(fromDatastore);
     });
 }
 
@@ -43,5 +51,6 @@ function postUser(user) {
 
 module.exports = {
     getUser,
-    postUser
+    postUser,
+    getUsersUnprotected
 }

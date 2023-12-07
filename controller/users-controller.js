@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const router = express.Router();
 const users = express.Router();
 
-const exPostsModelFunctions = require('../model/posts-model');
+const userModelFunctions = require('../model/users-model');
 const interactionsModelFunctions = require('../model/interactions-model');
 const jwt = require('express-jwt');
 const jwksRsa = require('jwks-rsa');
@@ -35,29 +35,11 @@ const checkJwt = jwt({
 
 /* ------------- Begin Controller Functions ------------- */
 
-users.get('/:userId', checkJwt, function (req, res) {
-    let exPostsArr = [];
-
-    exPostsModelFunctions.getOwnerExPosts(req.params.userId)
-        .then((posts) => {
-            // Iterate over array of posts for specified user
-            for (let i = 0; i < posts.length; i++) {
-                // Boat is public if true
-                if (posts[i].public === true) {
-                    exPostsArr.push(posts[i]);
-                }
-            }
-
-            const accepts = req.accepts(['application/json', 'text/html']);
-            if (posts.owner && posts.owner !== req.user.sub) {
-                res.status(403).send('Forbidden');
-            } else if (!accepts) {
-                res.status(406).send('Not Acceptable');
-            } else if (accepts === 'application/json') {
-                res.status(200).json(exPostsArr);
-            } else if (accepts === 'text/html') {
-                res.status(200).send(json2html(exPostsArr).slice(1, -1));
-            } else { res.status(500).send('Content type got messed up!'); }
+// Get all users uprotected
+users.get('/', function (req, res) {
+    userModelFunctions.getUsersUnprotected(req)
+        .then((users) => {
+            res.status(200).json(users);
         });
 });
 
@@ -73,7 +55,7 @@ users.post('/', checkJwt, function (req, res) {
             name: req.body.name
         }
 
-        exPostsModelFunctions.postExPost(user)
+        userModelFunctionslFunctions.postExPost(user)
             .then(result => {
                 // Create a new eX post of acceptable length
                 const key = result.key;

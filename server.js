@@ -34,6 +34,7 @@ const config = {
 
 // auth router attaches /login, /logout, and /callback routes to the baseURL
 app.use('/login', require('./controller/login-controller'));
+app.use('/users', require('./controller/users-controller'));
 app.use('/posts', require('./controller/posts-controller'));
 app.use('/interactions', require('./controller/interactions-controller'));
 app.use('/home', require('./view/home'));
@@ -46,10 +47,7 @@ app.use(auth(config));
 app.get('/', (req, res) => {
     if (req.oidc.isAuthenticated()) {
         let user = ({ "user": req.oidc.user, "jwt": req.oidc.idToken });
-        // Check if user exists
-        // If user does not exist in datastore:
-        // userModelFunctions.getUser(r)
-        // Otherwise:
+
         userModelFunctions.postUser(user)
             .then(result => {
                 res.send(result.data);
