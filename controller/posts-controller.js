@@ -37,31 +37,32 @@ const checkJwt = jwt({
 
 /* ------------- Begin Controller Functions ------------- */
 
-users.get('/:userId/posts', checkJwt, function (req, res) {
-    let exPostsArr = [];
+// users.get('/:userId/posts', checkJwt, function (req, res) {
+//     let exPostsArr = [];
 
-    exPostsModelFunctions.getOwnerExPosts(req.params.userId)
-        .then((posts) => {
-            // Iterate over array of posts for specified user
-            for (let i = 0; i < posts.length; i++) {
-                // Boat is public if true
-                if (posts[i].public === true) {
-                    exPostsArr.push(posts[i]);
-                }
-            }
+//     exPostsModelFunctions.getOwnerExPosts(req.params.userId)
+//         .then((posts) => {
+//             // Iterate over array of posts for specified user
+//             for (let i = 0; i < posts.length; i++) {
+//                 // Boat is public if true
+//                 if (posts[i].public === true) {
+//                     exPostsArr.push(posts[i]);
+//                 }
+//             }
 
-            const accepts = req.accepts(['application/json', 'text/html']);
-            if (posts.owner && posts.owner !== req.user.sub) {
-                res.status(403).send('Forbidden');
-            } else if (!accepts) {
-                res.status(406).send('Not Acceptable');
-            } else if (accepts === 'application/json') {
-                res.status(200).json(exPostsArr);
-            } else if (accepts === 'text/html') {
-                res.status(200).send(json2html(exPostsArr).slice(1, -1));
-            } else { res.status(500).send('Content type got messed up!'); }
-        });
-});
+//             const accepts = req.accepts(['application/json', 'text/html']);
+//             if (posts.owner && posts.owner !== req.user.sub) {
+//                 res.status(403).send('Forbidden');
+//             } else if (!accepts) {
+//                 res.status(406).send('Not Acceptable');
+//             } else if (accepts === 'application/json') {
+//                 res.status(200).json(exPostsArr);
+//             } else if (accepts === 'text/html') {
+//                 res.status(200).send(json2html(exPostsArr).slice(1, -1));
+//             } else { res.status(500).send('Content type got messed up!'); }
+//         });
+// });
+
 // Create an eX Post
 router.post('/', checkJwt, function (req, res) {
     if (req.get('content-type') !== 'application/json') {
@@ -125,6 +126,15 @@ router.get('/', checkJwt, function (req, res) {
             exPostsWithoutInteractions.push(exPosts.next);
             res.status(200).json(exPostsWithoutInteractions);
         });
+});
+
+// Get all unprotected eX Posts
+router.get('/unprotected', function (req, res) {
+    exPostsModelFunctions.getExPostsUnprotected()
+        .then((exPosts) => {
+            res.status(200).json(exPosts);
+        });
+
 });
 
 // Get an eX Post

@@ -5,7 +5,7 @@ const INTERACTION = "Interaction";
 
 function fromDatastore(item) {
     try {
-        item.id = item[Datastore.KEY].id;
+        item.id = item[datastore.KEY].id;
         return item;
     } catch {
         return -1;
@@ -25,21 +25,14 @@ function getDateTime() {
 /* ------------- Begin Post Model Functions ------------- */
 
 function getOwnerExPosts(owner) {
-    const q = datastore.createQuery(BOAT);
+    const q = datastore.createQuery(POST);
     return datastore.runQuery(q).then((entities) => {
         return entities[0].map(fromDatastore).filter(item => item.owner === owner);
     });
 }
 
-function getExPostsUnprotected() {
-    const q = datastore.createQuery(BOAT);
-    return datastore.runQuery(q).then((entities) => {
-        return entities[0].map(fromDatastore);
-    });
-}
-
 function getOwnerExPost(postId) {
-    const key = datastore.key([BOAT, parseInt(postId, 10)]);
+    const key = datastore.key([POST, parseInt(postId, 10)]);
     return datastore.get(key).then((data) => {
         return fromDatastore(data[0]);
     }
@@ -92,6 +85,14 @@ function getExPosts(req) {
 
             return results;
         });
+}
+
+// View all eX Posts unprotected
+function getExPostsUnprotected() {
+    const q = datastore.createQuery(POST);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(fromDatastore);
+    });
 }
 
 // View an eX post
@@ -251,11 +252,11 @@ function deleteExPost(postId) {
 
 module.exports = {
     getOwnerExPosts,
-    getExPostsUnprotected,
     getOwnerExPost,
     getDateTime,
     postExPost,
     getExPosts,
+    getExPostsUnprotected,
     getExPost,
     putExPost,
     putExPostInteraction,
