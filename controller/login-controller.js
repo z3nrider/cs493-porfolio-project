@@ -1,7 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const request = require('request');
-const path = require('path');
 const login = express.Router();
 const { auth } = require('express-openid-connect');
 
@@ -11,45 +10,9 @@ const DOMAIN = 'dev-gblxtkrkmbzldfsv.us.auth0.com';
 
 login.use(bodyParser.json());
 
-// A function that generates state
-// From Stack Overflow:
-//https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
-function makeState(length) {
-    let result = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const charactersLength = characters.length;
-    let counter = 0;
-    while (counter < length) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength));
-        counter += 1;
-    }
-    return result;
-}
-
-let secret = makeState(20);
-const config = {
-    authRequired: false,
-    auth0Logout: true,
-    baseURL: 'http://localhost:3000',
-    clientID: CLIENT_ID,
-    issuerBaseURL: 'https://dev-gblxtkrkmbzldfsv.us.auth0.com',
-    secret: secret
-};
 
 // auth router attaches /login, /logout, and /callback routes to the baseURL
 login.use(auth(config));
-
-// req.isAuthenticated is provided from the auth router
-login.get('/', (req, res) => {
-    // res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
-    if (req.oidc.isAuthenticated()) {
-        let user = ({ "user": req.oidc.user, "jwt": req.oidc.idToken });
-        res.send(user);
-    } else {
-        const filePath = path.resolve(__dirname, '../view/index.html');
-        res.sendFile(filePath);
-    }
-});
 
 login.post('/', function (req, res) {
     const username = req.body.username;
