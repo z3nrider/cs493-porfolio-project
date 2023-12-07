@@ -36,7 +36,7 @@ login.use(bodyParser.json());
 
 
 // auth router attaches /login, /logout, and /callback routes to the baseURL
-login.use(auth(config));
+// login.use(auth(config));
 
 login.post('/', function (req, res) {
     const username = req.body.username;

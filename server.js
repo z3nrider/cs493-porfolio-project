@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const CLIENT_ID = 'CTnVpRETT7mPYgPOdZaaanVGt20dHnKl';
 const userModelFunctions = require('./model/users-model');
+app.use(bodyParser.json());
 
 // A function that generates state
 // From Stack Overflow:
@@ -32,14 +33,14 @@ const config = {
 };
 
 // auth router attaches /login, /logout, and /callback routes to the baseURL
-
 app.use('/login', require('./controller/login-controller'));
 app.use('/posts', require('./controller/posts-controller'));
 app.use('/interactions', require('./controller/interactions-controller'));
 app.use('/home', require('./view/home'));
-
 app.use(auth(config));
-app.use(bodyParser.json());
+
+
+
 /* ------------- Begin Controller Functions ------------- */
 
 app.get('/', (req, res) => {
