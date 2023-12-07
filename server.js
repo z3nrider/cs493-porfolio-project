@@ -5,6 +5,7 @@ const { auth } = require('express-openid-connect');
 const bodyParser = require('body-parser');
 const path = require('path');
 const CLIENT_ID = 'CTnVpRETT7mPYgPOdZaaanVGt20dHnKl';
+const userModelFunctions = require('./model/users-model');
 
 // A function that generates state
 // From Stack Overflow:
@@ -30,24 +31,40 @@ const config = {
     secret: secret
 };
 
-
 // auth router attaches /login, /logout, and /callback routes to the baseURL
-app.use(auth(config));
-app.use(bodyParser.json());
+
 app.use('/login', require('./controller/login-controller'));
 app.use('/posts', require('./controller/posts-controller'));
 app.use('/interactions', require('./controller/interactions-controller'));
 app.use('/home', require('./view/home'));
 
+app.use(auth(config));
+app.use(bodyParser.json());
+/* ------------- Begin Controller Functions ------------- */
+
 app.get('/', (req, res) => {
     if (req.oidc.isAuthenticated()) {
         let user = ({ "user": req.oidc.user, "jwt": req.oidc.idToken });
-        res.send(user);
+        // Check if user exists
+        // If user does not exist in datastore:
+        // userModelFunctions.getUser(r)
+        // Otherwise:
+        userModelFunctions.postUser(user)
+            .then(result => {
+                res.send(result.data);
+            })
+
     } else {
         const filePath = path.resolve(__dirname, './view/index.html');
         res.sendFile(filePath);
     }
 });
+
+/* ------------- End Controller Functions ------------- */
+
+
+
+/* ------------- Running Server ------------- */
 
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}...`);

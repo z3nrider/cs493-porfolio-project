@@ -37,11 +37,6 @@ const checkJwt = jwt({
 
 /* ------------- Begin Controller Functions ------------- */
 
-
-app.get('/', function (req, res) {
-    res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
-});
-
 users.get('/:userId/posts', checkJwt, function (req, res) {
     let exPostsArr = [];
 
