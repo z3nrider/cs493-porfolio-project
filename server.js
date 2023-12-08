@@ -29,7 +29,7 @@ let secret = makeState(20);
 const config = {
     authRequired: false,
     auth0Logout: true,
-    baseURL: 'http://localhost:3000',
+    baseURL: 'https://koehlerb-ex.uw.r.appspot.com',
     clientID: CLIENT_ID,
     issuerBaseURL: 'https://dev-gblxtkrkmbzldfsv.us.auth0.com',
     secret: secret
