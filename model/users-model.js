@@ -1,4 +1,5 @@
 const ds = require('../database/datastore');
+
 const datastore = ds.datastore;
 const USER = "User";
 
@@ -28,17 +29,12 @@ function getUsersUnprotected(req) {
     });
 }
 
-// Create an eX Post
-function postUser(user) {
+// Create an eX User
+function postUser(jwt) {
     let key = datastore.key(USER);
 
     const newUser = {
-        "id": key.id,
-        "name": user.user.name,
-        "email": user.user.email,
-        "nickname": user.user.nickname,
-        "sub": user.user.sub,
-        "jwt": user.jwt
+        "jwt": jwt,
     }
 
     return datastore.save({ "key": key, "data": newUser })

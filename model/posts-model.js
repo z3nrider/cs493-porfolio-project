@@ -1,4 +1,5 @@
 const ds = require('../database/datastore');
+
 const datastore = ds.datastore;
 const POST = "Post";
 const INTERACTION = "Interaction";
@@ -179,7 +180,6 @@ function putExPostInteraction(postId, updatedInteraction, originalExPostProperti
         });
 }
 
-//TODO: double check that I'm modifying all these properties
 // Edit an eX Post
 function patchExPost(postId, editedExPostProperties) {
     const key = datastore.key([POST, parseInt(postId, 10)]);
@@ -204,7 +204,6 @@ function patchExPost(postId, editedExPostProperties) {
 // Interact with an eX Post
 function putInteractWithExPost(postId, interactionId, body) {
     const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-    const interactionKey = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
 
     return datastore.get(exPostKey)
         .then((exPost) => {
@@ -244,7 +243,6 @@ function putInteractWithExPost(postId, interactionId, body) {
 // Delete an eX Post
 function deleteExPost(postId) {
     const exPostKey = datastore.key([POST, parseInt(postId, 10)]);
-
     return datastore.delete(exPostKey);
 }
 

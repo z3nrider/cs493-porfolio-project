@@ -1,7 +1,7 @@
 const ds = require('../database/datastore');
+
 const datastore = ds.datastore;
 const INTERACTION = "Interaction";
-const exPostsModelFunctions = require('../model/posts-model');
 
 
 // Snippet taken from https://tecadmin.net/get-current-date-time-javascript/
@@ -29,6 +29,14 @@ function postInteraction(repost, like, view, postId) {
         .then(() => {
             return { key, data: newInteraction }
         });
+}
+
+// View all interactions unprotected
+function getInteractionsUnprotected() {
+    const q = datastore.createQuery(POST);
+    return datastore.runQuery(q).then((entities) => {
+        return entities[0].map(fromDatastore);
+    });
 }
 
 function getInteractions(req) {
@@ -83,8 +91,8 @@ function putInteraction(interactionId, editedInteractionProperties) {
         });
 }
 
-function patchInteraction(postId, editedExPostProperties) {
-    const key = datastore.key([INTERACTION, parseInt(postId, 10)]);
+function patchInteraction(interactionId, editedInteractionProperties) {
+    const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
 
     let editedInteraction = {
         "repost": editedInteractionProperties.repost,
@@ -102,46 +110,6 @@ function patchInteraction(postId, editedExPostProperties) {
 function deleteInteraction(interactionId) {
     const key = datastore.key([INTERACTION, parseInt(interactionId, 10)]);
     return datastore.delete(interactionId);
-    // const interaction = getInteraction(interactionId)
-    //     .then(result => {
-
-    //         // Get eX Post to be deleted
-    //         let exPost = exPostsModelFunctions.getExPost(result[0].postId)
-    //             .then(result => {
-    //                 let exPostInteractionsArr = result[0].interactions;
-
-    //                 // Iterate through associated interactions
-    //                 for (let i = 0; i < exPostInteractionsArr.length; i++) {
-
-    //                     // Found associated interaction to be removed from eX Post
-    //                     if (exPostInteractionsArr[i].interactionId === interactionId) {
-    //                         // Decrement repost if reposted
-    //                         if (exPostInteractionsArr[i].repost === true) {
-    //                             result[0].status.reposts -= 1;
-    //                         }
-
-    //                         // Decrement like if liked
-    //                         if (exPostInteractionsArr[i].like === true) {
-    //                             result[0].status.likes -= 1;
-    //                         }
-    //                         // Views remain the same
-
-    //                         result[0].interactions.splice(i, 1); // remove associated interaction from post
-
-    //                         // Patch eX Post
-    //                         let postId = result[0].id;
-    //                         let editedExPostProperties = result[0];
-    //                         let updatedExPost = exPostsModelFunctions.patchExPost(postId, editedExPostProperties)
-    //                             .then(final => {
-    //                                 return datastore.save({ "key": key, "data": updatedExPost })
-    //                                     .then(() => {
-    //                                         return { key, data: updatedExPost }
-    //                                     });
-    //                             })
-    //                     }
-    //                 }
-    //             });
-    //     })
 }
 
 
@@ -153,5 +121,6 @@ module.exports = {
     getInteractions,
     getInteraction,
     putInteraction,
+    patchInteraction,
     deleteInteraction
 }

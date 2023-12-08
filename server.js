@@ -1,11 +1,13 @@
 const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
 const { auth } = require('express-openid-connect');
 const bodyParser = require('body-parser');
 const path = require('path');
-const CLIENT_ID = 'CTnVpRETT7mPYgPOdZaaanVGt20dHnKl';
 const userModelFunctions = require('./model/users-model');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const CLIENT_ID = 'CTnVpRETT7mPYgPOdZaaanVGt20dHnKl';
+
 app.use(bodyParser.json());
 
 // A function that generates state
@@ -22,6 +24,7 @@ function makeState(length) {
     }
     return result;
 }
+
 let secret = makeState(20);
 const config = {
     authRequired: false,
@@ -39,8 +42,6 @@ app.use('/posts', require('./controller/posts-controller'));
 app.use('/interactions', require('./controller/interactions-controller'));
 app.use('/home', require('./view/home'));
 app.use(auth(config));
-
-
 
 /* ------------- Begin Controller Functions ------------- */
 

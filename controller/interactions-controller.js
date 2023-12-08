@@ -1,6 +1,5 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const app = express();
 
 const router = express.Router();
 
@@ -8,7 +7,6 @@ const exPostsModelFunctions = require('../model/posts-model');
 const interactionsModelFunctions = require('../model/interactions-model');
 
 const ds = require('../database/datastore');
-const datastore = ds.datastore;
 
 router.use(bodyParser.json());
 
@@ -70,7 +68,13 @@ router.get('/', function (req, res) {
         });
 });
 
-// get a new interaction
+router.get('/unprotected', function (req, res) {
+    interactionsModelFunctions.getInteractions(req)
+        .then((interactions) => {
+            res.status(200).json(interactions);
+        });
+});
+
 router.get('/:interactionId', function (req, res) {
     interactionsModelFunctions.getInteraction(req.params.interactionId)
         .then(interaction => {
@@ -103,13 +107,62 @@ router.get('/:interactionId', function (req, res) {
 );
 
 router.put('/:interactionId', function (req, res) {
-    interactionsModelFunctions.putInteraction(req.params.interactionId, req.body.name)
+    interactionsModelFunctions.putInteraction(req.params.interactionId, req.body)
         .then(res.status(200).end());
 });
 
-router.delete('/:interactionId', function (req, res) {
-    // const interactionId = req.params.interactionId;
+router.patch('/:interactionId', function (req, res) {
+    interactionsModelFunctions.getInteraction(req.params.interactionId)
+        .then(originalInteraction => {
+            originalInteraction = originalInteraction[0];
+            const accepts = req.accepts(['application/json', 'text/html']);
+            if (originalInteraction === undefined) {
+                res.status(404).end();
+            } else {
+                let editedInteraction;
+                // Pass in remaining properties to edited interaction
 
+
+                if (req.body.repost !== undefined) {
+                    originalInteraction.repost = req.body.repost;
+                }
+
+                if (req.body.like !== undefined) {
+                    originalInteraction.like = req.body.like;
+                }
+
+                if (req.body.view !== undefined) {
+                    originalInteraction.view = req.body.view;
+                }
+
+                editedInteraction = originalInteraction;
+
+                interactionsModelFunctions.patchInteraction(req.params.interactionId, editedInteraction)
+                    .then(result => {
+                        const key = result.key;
+                        const data = result.data;
+                        const selfLink = req.get("host") + req.baseUrl + "/" + key.id;
+                        const editedInteraction = {
+                            "id": key.id,
+                            "repost": data.repost,
+                            "like": data.like,
+                            "view": data.view,
+                            "self": selfLink
+                        };
+
+                        // Send back the updated post as json or html
+                        if (accepts === 'application/json') {
+                            res.status(200).set("Location", selfLink).send(editedInteraction);
+                        } else {
+                            let htmlUpdateExPost = json2html.render(editedInteraction, template);
+                            res.status(200).set("Location", selfLink).send(htmlUpdateExPost);
+                        }
+                    })
+            }
+        })
+});
+
+router.delete('/:interactionId', function (req, res) {
     interactionsModelFunctions.deleteInteraction(req.params.interactionId).then(res.status(204).end());
 });
 

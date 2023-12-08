@@ -1,22 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-
-const router = express.Router();
-const users = express.Router();
-
 const userModelFunctions = require('../model/users-model');
-const interactionsModelFunctions = require('../model/interactions-model');
 const jwt = require('express-jwt');
 const jwksRsa = require('jwks-rsa');
-const ds = require('../database/datastore');
 
+const users = express.Router();
 const DOMAIN = 'dev-gblxtkrkmbzldfsv.us.auth0.com';
-const { auth } = require('express-openid-connect');
-
-
-const json2html = require('node-json2html');
-const template = { '<>': 'ul', 'html': '{ "content": ${content}, "hashtag": ${hashtag}, "verification": ${verification}, "self": ${self} }' };
-const MAX_POST_LENGTH = 140;
 
 users.use(bodyParser.json());
 
@@ -73,7 +62,5 @@ users.post('/', checkJwt, function (req, res) {
 
 
 /* ------------- End Controller Functions ------------- */
-
-// app.use('/users', users);
 
 module.exports = users;

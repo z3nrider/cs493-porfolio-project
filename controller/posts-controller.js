@@ -105,28 +105,28 @@ router.post('/', checkJwt, function (req, res) {
 });
 
 // Get all eX Posts
-// router.get('/', function (req, res) {
-//     exPostsModelFunctions.getExPosts(req)
-//         .then((exPosts) => {
-//             let exPostsWithoutInteractions = []
-//             let exPostsArr = exPosts.items;
+router.get('/', function (req, res) {
+    exPostsModelFunctions.getExPosts(req)
+        .then((exPosts) => {
+            let exPostsWithoutInteractions = []
+            let exPostsArr = exPosts.items;
 
-//             // Omit certain properties when requesting all eX Posts
-//             for (let i = 0; i < exPostsArr.length; i++) {
-//                 let currentExPost = {
-//                     id: exPostsArr[i].id,
-//                     content: exPostsArr[i].content,
-//                     hashtag: exPostsArr[i].hashtag,
-//                     status: exPostsArr[i].status,
-//                     self: exPostsArr[i].self
-//                 };
-//                 exPostsWithoutInteractions.push(currentExPost);
-//             }
-//             // Append next link to array
-//             exPostsWithoutInteractions.push(exPosts.next);
-//             res.status(200).json(exPostsWithoutInteractions);
-//         });
-// });
+            // Omit certain properties when requesting all eX Posts
+            for (let i = 0; i < exPostsArr.length; i++) {
+                let currentExPost = {
+                    id: exPostsArr[i].id,
+                    content: exPostsArr[i].content,
+                    hashtag: exPostsArr[i].hashtag,
+                    status: exPostsArr[i].status,
+                    self: exPostsArr[i].self
+                };
+                exPostsWithoutInteractions.push(currentExPost);
+            }
+            // Append next link to array
+            exPostsWithoutInteractions.push(exPosts.next);
+            res.status(200).json(exPostsWithoutInteractions);
+        });
+});
 
 // Get all unprotected eX Posts
 router.get('/unprotected', function (req, res) {
@@ -152,7 +152,7 @@ router.get('/:postId', checkJwt, function (req, res) {
                     const data = exPost[0];
                     const selfLink = req.get("host") + req.baseUrl + "/" + data.id;
 
-                    const exPost = {
+                    const exPostRequested = {
                         "id": data.id,
                         "content": data.content,  // Content of the eX post
                         "hashtag": data.hashtag,
@@ -163,7 +163,7 @@ router.get('/:postId', checkJwt, function (req, res) {
                         "status": data.status,  // Cumulative interaction events
                         "self": selfLink
                     }
-                    res.status(200).json(exPost);
+                    res.status(200).json(exPostRequested);
                 } else if (accepts === 'text/html') {
                     const exPostHTML = JSON.stringify(exPost[0]);
                     res.status(200).send(`<p>${exPostHTML}</p>`);
@@ -251,7 +251,7 @@ router.patch('/:postId', checkJwt, function (req, res) {
     } if (!accepts) {
         res.status(406).json({ 'Error': 'Not Acceptable' });
     } else if ((accepts === 'application/json') || (accepts === 'text/html')) {
-        const originalExPost = exPostsModelFunctions.getExPost(req.params.postId)
+        exPostsModelFunctions.getExPost(req.params.postId)
             .then(originalExPost => {
                 originalExPost = originalExPost[0];
 
@@ -265,8 +265,8 @@ router.patch('/:postId', checkJwt, function (req, res) {
                     // Pass in remaining properties to edited post
 
 
-                    if (req.body.conent !== undefined) {
-                        originalExPost.conent = req.body.content;
+                    if (req.body.content !== undefined) {
+                        originalExPost.content = req.body.content;
                     }
 
                     if (req.body.hashtag !== undefined) {
